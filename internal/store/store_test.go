@@ -42,7 +42,8 @@ func offer(price int64, stops, minutes int, airline string) serpapi.Offer {
 // limits), a cheap but too long one, and two acceptable ones.
 func success(option, origin string, at time.Time, cheapest int64) Run {
 	return Run{Option: option, Origin: origin, StartedAt: at, Source: "scheduled", Request: request(origin),
-		Result: serpapi.Result{Status: serpapi.Success, Raw: []byte(`{"best_flights":[]}`),
+		Result: serpapi.Result{Status: serpapi.Success,
+			Raw:      []byte(`{"search_metadata": {"google_flights_url": "https://www.google.com/travel/flights?tfs=` + origin + `"}}`),
 			Insights: &serpapi.Insights{Level: "low", LowestCents: cheapest - 5000, TypicalLowCents: 100000, TypicalHighCents: 150000},
 			Offers: []serpapi.Offer{
 				offer(cheapest-5000, 2, 600, "Twostop Air"),
@@ -86,6 +87,9 @@ func TestSaveAndObservations(t *testing.T) {
 	}
 	if !slices.Equal(first.Route, []string{"FRA", "JFK"}) {
 		t.Errorf("route = %v", first.Route)
+	}
+	if first.GoogleFlightsURL != "https://www.google.com/travel/flights?tfs=FRA" {
+		t.Errorf("google flights url = %q", first.GoogleFlightsURL)
 	}
 
 	fra, err := s.Observations(ctx, "A", "FRA", day(2, 0))

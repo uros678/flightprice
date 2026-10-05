@@ -131,7 +131,7 @@ func TestShortAndLongCycles(t *testing.T) {
 		first time.Time
 		days  int
 	}{
-		{"31 days", at(2027, 7, 1), 31},
+		{"31 days", at(2027, 3, 1), 31},
 		{"28 days", at(2027, 2, 1), 28},
 	} {
 		cfg := testConfig(t, "")
@@ -268,5 +268,32 @@ func TestSmallRestIsSpread(t *testing.T) {
 	}
 	if len(days) < 5 || days[len(days)-1] < 15 {
 		t.Errorf("checks on days %v: the rest is not spread over the cycle", days)
+	}
+}
+
+func TestDeparted(t *testing.T) {
+	cfg := testConfig(t, "") // A departs 2027-05-10, B 2027-06-07
+	onSale := map[string]bool{"A": true, "B": true}
+
+	p := Make(cfg, at(2027, 5, 9), 0, nil, onSale)
+	if len(p.Departed) != 0 || len(p.Searches) == 0 {
+		t.Errorf("day before: departed %v, %d searches", p.Departed, len(p.Searches))
+	}
+	// On the departure day A is done; the whole share goes to B.
+	p = Make(cfg, at(2027, 5, 10), 0, nil, onSale)
+	if !slices.Equal(p.Departed, []string{"A"}) {
+		t.Errorf("departed = %v", p.Departed)
+	}
+	for _, s := range p.Searches {
+		if s.Option != "B" {
+			t.Errorf("searched %+v after its departure", s)
+		}
+	}
+	if InWindow(cfg.Options[0], 331, at(2027, 5, 10)) {
+		t.Error("A still in the window on its departure day")
+	}
+	p = Make(cfg, at(2027, 7, 1), 0, nil, onSale)
+	if len(p.Departed) != 2 || len(p.Searches) != 0 {
+		t.Errorf("after both: %+v", p)
 	}
 }

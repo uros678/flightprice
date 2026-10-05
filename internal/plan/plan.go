@@ -13,7 +13,7 @@
 //     reserve is released step by step, so nothing is wasted.
 //   - An option is not searched before its return date is within
 //     max_days_ahead: Google has no flights that far out, and an empty search
-//     still costs a call.
+//     still costs a call. Nor once its departure day has come.
 //   - An option in that window that has never had offers gets one probe a
 //     day, from the first origin, until its fares appear.
 //   - Options on sale are searched together: one airport check is one search
@@ -58,6 +58,7 @@ type Plan struct {
 	Calls      int       // calls planned today (len(Searches))
 	Searches   []Search
 	Waiting    []Waiting
+	Departed   []string // options whose departure day has come: no longer searched
 }
 
 // Checks is the origins the plan checks for all options on sale, in order
@@ -96,9 +97,15 @@ func OpensOn(o config.Option, maxDaysAhead int) time.Time {
 }
 
 // InWindow reports whether an option is searched on day (a date in any
-// zone; only the calendar date counts).
+// zone; only the calendar date counts): its return date is within
+// max_days_ahead and its departure day has not come yet.
 func InWindow(o config.Option, maxDaysAhead int, day time.Time) bool {
-	return !date(day).Before(OpensOn(o, maxDaysAhead))
+	return !date(day).Before(OpensOn(o, maxDaysAhead)) && !Departed(o, day)
+}
+
+// Departed reports whether an option's departure day has come on day.
+func Departed(o config.Option, day time.Time) bool {
+	return !date(day).Before(o.Depart.Time)
 }
 
 // Make is the plan for the day of now. used is the number of calls already
@@ -123,6 +130,8 @@ func Make(cfg *config.Config, now time.Time, used int, lastChecked map[string]ti
 	var probes, active []string
 	for _, o := range cfg.Options {
 		switch {
+		case Departed(o, today):
+			p.Departed = append(p.Departed, o.Name)
 		case !InWindow(o, b.MaxDaysAhead, today):
 			p.Waiting = append(p.Waiting, Waiting{Option: o.Name, OpensOn: OpensOn(o, b.MaxDaysAhead)})
 		case onSale[o.Name]:

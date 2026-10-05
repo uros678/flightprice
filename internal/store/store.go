@@ -119,7 +119,8 @@ func (s *Store) SetLimits(ctx context.Context, l Limits) error {
 	view := `CREATE VIEW observations AS
 SELECT r.id AS run_id, r.option, r.origin, r.started_at, r.price_level,
        MIN(o.price_cents) AS price_cents, o.currency, o.id AS offer_id,
-       o.stops, o.duration_min, o.airlines, o.route
+       o.stops, o.duration_min, o.airlines, o.route,
+       COALESCE(json_extract(r.raw_json, '$.search_metadata.google_flights_url'), '') AS google_flights_url
 FROM runs r JOIN offers o ON o.run_id = r.id
 WHERE r.status = 'SUCCESS' AND ` + where + `
 GROUP BY r.id`
@@ -279,13 +280,16 @@ type Observation struct {
 	DurationMin int
 	Airlines    []string
 	Route       []string
+	// GoogleFlightsURL opens the run's search on Google Flights (as SerpApi
+	// gave it; check it with serpapi.GoogleFlightsURL before linking).
+	GoogleFlightsURL string
 }
 
 // Observations returns the price history since t, oldest first. An empty
 // option or origin means all of them.
 func (s *Store) Observations(ctx context.Context, option, origin string, since time.Time) ([]Observation, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT run_id, option, origin, started_at, COALESCE(price_level, ''),
-		price_cents, currency, offer_id, stops, duration_min, airlines, route
+		price_cents, currency, offer_id, stops, duration_min, airlines, route, google_flights_url
 		FROM observations
 		WHERE (? = '' OR option = ?) AND (? = '' OR origin = ?) AND started_at >= ?
 		ORDER BY started_at, run_id`,
@@ -299,7 +303,7 @@ func (s *Store) Observations(ctx context.Context, option, origin string, since t
 		var o Observation
 		var at, airlines, route string
 		if err := rows.Scan(&o.RunID, &o.Option, &o.Origin, &at, &o.Level, &o.PriceCents, &o.Currency,
-			&o.OfferID, &o.Stops, &o.DurationMin, &airlines, &route); err != nil {
+			&o.OfferID, &o.Stops, &o.DurationMin, &airlines, &route, &o.GoogleFlightsURL); err != nil {
 			return nil, err
 		}
 		if o.At, err = time.Parse(timeLayout, at); err != nil {

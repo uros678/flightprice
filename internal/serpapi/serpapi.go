@@ -52,6 +52,11 @@ type Request struct {
 	Cabin        string   `json:"cabin"` // economy, premium_economy, business, first
 	Currency     string   `json:"currency"`
 	Market       string   `json:"market,omitempty"` // Google's gl, e.g. "at"
+	// MaxStops and MaxDurationMin let Google filter the offers. Its filter
+	// applies to the outbound and the return flight, which the offer
+	// details (outbound only) cannot show. nil and 0 mean no limit.
+	MaxStops       *int `json:"max_stops,omitempty"`
+	MaxDurationMin int  `json:"max_duration_min,omitempty"`
 }
 
 var travelClass = map[string]int{"economy": 1, "premium_economy": 2, "business": 3, "first": 4}
@@ -76,6 +81,14 @@ func (r Request) query(key string) (url.Values, error) {
 		q.Set("children", strconv.Itoa(r.Children))
 	}
 	q.Set("travel_class", strconv.Itoa(class))
+	// SerpApi's stops: 0 any, 1 nonstop only, 2 one stop or fewer, 3 two
+	// stops or fewer.
+	if r.MaxStops != nil && *r.MaxStops >= 0 && *r.MaxStops <= 2 {
+		q.Set("stops", strconv.Itoa(*r.MaxStops+1))
+	}
+	if r.MaxDurationMin > 0 {
+		q.Set("max_duration", strconv.Itoa(r.MaxDurationMin))
+	}
 	q.Set("currency", r.Currency)
 	q.Set("hl", "en")
 	if r.Market != "" {
@@ -112,7 +125,10 @@ type Result struct {
 	Status   Status
 	Offers   []Offer
 	Insights *Insights // nil when Google gave none
-	Raw      []byte
+	// GoogleFlightsURL opens the same search on Google Flights, where the
+	// return flights can be seen and booked.
+	GoogleFlightsURL string
+	Raw              []byte
 }
 
 // Offer is one round-trip itinerary. The price is the round-trip total for
@@ -264,7 +280,10 @@ func errorText(body []byte, fallback string) string {
 }
 
 type response struct {
-	Error             string `json:"error"`
+	Error          string `json:"error"`
+	SearchMetadata struct {
+		GoogleFlightsURL string `json:"google_flights_url"`
+	} `json:"search_metadata"`
 	SearchInformation struct {
 		FlightsResultsState string `json:"flights_results_state"`
 	} `json:"search_information"`
@@ -306,6 +325,7 @@ func Parse(body []byte) (Result, error) {
 		res.Status = ProviderError
 		return res, fmt.Errorf("unreadable response: %w", err)
 	}
+	res.GoogleFlightsURL = GoogleFlightsURL(r.SearchMetadata.GoogleFlightsURL)
 	if r.Error != "" {
 		// An empty result also comes as HTTP 200 with an error text.
 		if r.SearchInformation.FlightsResultsState == "Fully empty" || strings.Contains(r.Error, "hasn't returned any results") {
@@ -362,6 +382,14 @@ func Parse(body []byte) (Result, error) {
 		res.Status = Success
 	}
 	return res, nil
+}
+
+// GoogleFlightsURL returns u when it is a Google Flights link, else "".
+func GoogleFlightsURL(u string) string {
+	if strings.HasPrefix(u, "https://www.google.com/travel/flights") {
+		return u
+	}
+	return ""
 }
 
 func cents(price float64) int64 { return int64(math.Round(price * 100)) }

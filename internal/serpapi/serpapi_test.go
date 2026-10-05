@@ -125,8 +125,8 @@ func TestSearchSendsQuery(t *testing.T) {
 				t.Errorf("%s = %q, want %q", k, got, v)
 			}
 		}
-		if q.Has("children") {
-			t.Errorf("children sent although 0")
+		if q.Has("children") || q.Has("stops") || q.Has("max_duration") {
+			t.Errorf("children, stops or max_duration sent although not set: %v", q)
 		}
 		w.Write(body)
 	}))
@@ -283,5 +283,46 @@ func TestAccount(t *testing.T) {
 	var se *Error
 	if !errors.As(err, &se) || se.Status != AuthError {
 		t.Errorf("wrong key: %v", err)
+	}
+}
+
+func TestSearchLimits(t *testing.T) {
+	for _, tc := range []struct {
+		maxStops        *int
+		minutes         int
+		stops, duration string
+	}{
+		{ptr(0), 0, "1", ""},
+		{ptr(1), 1080, "2", "1080"},
+		{ptr(2), 0, "3", ""},
+		{ptr(3), 0, "", ""}, // more than Google's filter knows: no filter
+		{nil, 600, "", "600"},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			q := r.URL.Query()
+			if q.Get("stops") != tc.stops || q.Get("max_duration") != tc.duration {
+				t.Errorf("%v/%d: stops %q, max_duration %q", tc.maxStops, tc.minutes, q.Get("stops"), q.Get("max_duration"))
+			}
+			w.Write(fixture(t, "search_empty.json"))
+		}))
+		req := testRequest()
+		req.MaxStops, req.MaxDurationMin = tc.maxStops, tc.minutes
+		(&Client{Key: testKey, Endpoint: srv.URL}).Search(context.Background(), req)
+		srv.Close()
+	}
+}
+
+func ptr(n int) *int { return &n }
+
+func TestGoogleFlightsURL(t *testing.T) {
+	res, err := Parse([]byte(`{"search_metadata": {"google_flights_url": "https://www.google.com/travel/flights?hl=en&tfs=abc"},
+		"best_flights": [{"price": 100, "total_duration": 60, "flights": [{"departure_airport": {"id": "FRA"}, "arrival_airport": {"id": "JFK"}}]}]}`))
+	if err != nil || res.GoogleFlightsURL != "https://www.google.com/travel/flights?hl=en&tfs=abc" {
+		t.Errorf("url %q, %v", res.GoogleFlightsURL, err)
+	}
+	for _, bad := range []string{"javascript:alert(1)", "https://evil.example/travel/flights", ""} {
+		if got := GoogleFlightsURL(bad); got != "" {
+			t.Errorf("%q accepted as %q", bad, got)
+		}
 	}
 }

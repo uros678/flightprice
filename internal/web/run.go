@@ -350,6 +350,7 @@ func (s *Server) sleep(ctx context.Context, d time.Duration) bool {
 // NewRequest is the search for one origin and date option, always for all
 // passengers together.
 func NewRequest(cfg *config.Config, origin string, o config.Option) serpapi.Request {
+	maxStops := cfg.Constraints.MaxStops
 	return serpapi.Request{
 		Origin:       origin,
 		Destinations: cfg.Route.Destination,
@@ -360,6 +361,10 @@ func NewRequest(cfg *config.Config, origin string, o config.Option) serpapi.Requ
 		Cabin:        cfg.Route.Cabin,
 		Currency:     cfg.Route.Currency,
 		Market:       cfg.Route.Market,
+		// Google applies these to both directions; the observations view
+		// checks the outbound again.
+		MaxStops:       &maxStops,
+		MaxDurationMin: cfg.Constraints.MaxDurationMin(),
 	}
 }
 

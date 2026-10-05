@@ -73,6 +73,7 @@ details summary { cursor: pointer; color: var(--muted); }
         {{with .Level}}<span class="level {{.}}">Google: {{.}}</span>{{end}}</div>
       {{if .Change}}<div class="small{{if .Down}} down{{else if .Up}} up{{end}}">{{.Change}}</div>{{end}}
       <div class="muted small">{{.Detail}}</div>
+      {{with .URL}}<div class="small"><a href="{{.}}" target="_blank" rel="noopener noreferrer">Return flights and booking on Google Flights ↗</a></div>{{end}}
     {{else}}
       <p class="muted">No prices yet.</p>
     {{end}}
@@ -93,7 +94,7 @@ details summary { cursor: pointer; color: var(--muted); }
       <td><strong>{{.Origin}}</strong>{{if gt .Weight 1}} <span class="muted small">×{{.Weight}}</span>{{end}}</td>
       <td class="muted">{{.Checked}}</td>
       {{range .Cells}}
-        <td class="num"{{if .Best}} style="background:var(--mark)"{{end}}>{{.Latest}}{{with .When}}<div class="muted small">{{.}}</div>{{end}}</td>
+        <td class="num"{{if .Best}} style="background:var(--mark)"{{end}}>{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer" title="Open on Google Flights">{{.Latest}} ↗</a>{{else}}{{.Latest}}{{end}}{{with .When}}<div class="muted small">{{.}}</div>{{end}}</td>
         <td class="num">{{.Lowest}}</td>
       {{end}}
     </tr>
@@ -116,7 +117,9 @@ details summary { cursor: pointer; color: var(--muted); }
     {{end}}
   </table>
   </div>
-  <p class="muted small">Grey rows are outside the limits ({{$.Constraints}}) and are not tracked.</p>
+  <p class="muted small">Grey rows are outside the limits ({{$.Constraints}}) and are not tracked.
+    Flight details are the outbound; Google applies the limits to the return flight too. The return
+    flights of an airport are on Google Flights (↗ links in the airport table).</p>
 </section>
 {{end}}{{end}}
 
@@ -153,7 +156,7 @@ details summary { cursor: pointer; color: var(--muted); }
   {{else}}<p class="muted">No searches yet.</p>{{end}}
 </section>
 
-<p class="muted small">Prices are round-trip totals for all passengers, from SerpApi (Google Flights).
+<p class="muted small">Prices are round-trip totals for all passengers, outbound and return, from SerpApi (Google Flights).
   Price history as <a href="/data.json">JSON</a>.{{with .Version}} flightprice {{.}}.{{end}}</p>
 </main>
 </body>

@@ -12,6 +12,7 @@ import (
 
 	"github.com/uros678/flightprice/internal/config"
 	"github.com/uros678/flightprice/internal/plan"
+	"github.com/uros678/flightprice/internal/serpapi"
 	"github.com/uros678/flightprice/internal/store"
 )
 
@@ -48,6 +49,7 @@ type optionView struct {
 }
 
 type priceView struct {
+	URL      string // the search on Google Flights, with the return flights
 	Price    string
 	Origin   string
 	When     string
@@ -65,6 +67,7 @@ type originRow struct {
 }
 
 type originCell struct {
+	URL    string // Google Flights search of the latest price
 	Latest string
 	When   string
 	Lowest string
@@ -131,6 +134,8 @@ func (s *Server) page(ctx context.Context, msg string) (*pageData, error) {
 		hist := byOption[opt.Name]
 		v.OnSale = len(hist) > 0
 		switch {
+		case plan.Departed(opt, now):
+			v.State = "departed, no longer searched"
 		case v.OnSale:
 			v.State = "on sale"
 		case plan.InWindow(opt, cfg.Budget.MaxDaysAhead, now):
@@ -215,6 +220,7 @@ func (s *Server) page(ctx context.Context, msg string) (*pageData, error) {
 			if len(h) > 0 {
 				latest := h[len(h)-1]
 				c.Latest, c.When = money(latest.PriceCents, latest.Currency), ago(latest.At, now)
+				c.URL = serpapi.GoogleFlightsURL(latest.GoogleFlightsURL)
 				low := slices.MinFunc(h, func(a, b store.Observation) int { return cmp.Compare(a.PriceCents, b.PriceCents) })
 				c.Lowest = money(low.PriceCents, low.Currency)
 				c.Best = d.Options[i].Best != nil && d.Options[i].Best.Origin == origin
@@ -268,6 +274,7 @@ func (s *Server) page(ctx context.Context, msg string) (*pageData, error) {
 
 func (s *Server) priceView(o store.Observation, now time.Time, cur string) *priceView {
 	return &priceView{
+		URL:    serpapi.GoogleFlightsURL(o.GoogleFlightsURL),
 		Price:  money(o.PriceCents, o.Currency),
 		Origin: o.Origin,
 		When:   ago(o.At, now),

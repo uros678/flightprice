@@ -40,7 +40,8 @@ func (f *fake) Search(ctx context.Context, req serpapi.Request) (serpapi.Result,
 		return res, &serpapi.Error{Status: q[0], Message: "test failure"}
 	}
 	price := f.prices[req.Origin]
-	return serpapi.Result{Status: serpapi.Success, Raw: []byte(`{}`),
+	return serpapi.Result{Status: serpapi.Success,
+		Raw:      []byte(`{"search_metadata": {"google_flights_url": "https://www.google.com/travel/flights?tfs=` + req.Origin + req.Depart + `"}}`),
 		Insights: &serpapi.Insights{Level: "typical"},
 		Offers: []serpapi.Offer{
 			{PriceCents: price, Stops: 1, DurationMin: 600, Airlines: []string{"Good Air"}, Route: []string{req.Origin, "XX", "JFK"},
@@ -308,6 +309,7 @@ func TestPage(t *testing.T) {
 	for _, want := range []string{
 		"Option A", "Option B", "€1,250", "best now, from <strong>MUC</strong>", "2 adults &#43; 1 child",
 		"not searched before", "<svg", "hello", "3 / 60", "Search now", "probe",
+		`href="https://www.google.com/travel/flights?tfs=MUC2027-05-10"`, "Return flights and booking on Google Flights",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page does not contain %q", want)
@@ -435,5 +437,33 @@ func TestUsageFromSerpApi(t *testing.T) {
 	*ts.clock = time.Date(2026, 8, 2, 7, 0, 0, 0, ts.cfg.Schedule.Location())
 	if n, _ := ts.used(ctx, ts.now()); n != 0 {
 		t.Errorf("next cycle: used = %d", n)
+	}
+}
+
+func TestRequestCarriesLimits(t *testing.T) {
+	ts := newTestServer(t, "")
+	if _, err := ts.RunPlanned(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	req := ts.fake.calls[0]
+	if req.MaxStops == nil || *req.MaxStops != 1 || req.MaxDurationMin != 14*60 {
+		t.Errorf("limits not sent: stops %v, duration %d", req.MaxStops, req.MaxDurationMin)
+	}
+}
+
+func TestDepartedOptionNotSearched(t *testing.T) {
+	ts := newTestServer(t, "")
+	*ts.clock = time.Date(2027, 5, 10, 7, 0, 0, 0, ts.cfg.Schedule.Location()) // A departs today
+	p, err := ts.RunPlanned(context.Background())
+	if err != nil || len(p.Searches) != 0 || ts.fake.count() != 0 {
+		t.Errorf("plan %+v, %d searches, %v", p, ts.fake.count(), err)
+	}
+	if err := ts.Manual("FRA"); err == nil {
+		t.Error("manual search for a departed option")
+	}
+	rec := httptest.NewRecorder()
+	ts.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if !strings.Contains(rec.Body.String(), "departed, no longer searched") {
+		t.Error("page does not say option A departed")
 	}
 }

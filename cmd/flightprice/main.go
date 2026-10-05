@@ -161,6 +161,9 @@ func showPlan(args []string) error {
 	for _, w := range p.Waiting {
 		fmt.Printf("Option %s: not searched before %s\n", w.Option, w.OpensOn.Format(config.DateLayout))
 	}
+	for _, name := range p.Departed {
+		fmt.Printf("Option %s: departed, no longer searched\n", name)
+	}
 	if len(p.Searches) == 0 {
 		fmt.Println("No searches planned.")
 	}
