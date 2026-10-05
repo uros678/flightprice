@@ -1,0 +1,327 @@
+{
+ "search_metadata": {
+  "id": "example0000000000000000",
+  "status": "Success",
+  "created_at": "2026-10-05 08:00:00 UTC",
+  "processed_at": "2026-10-05 08:00:00 UTC",
+  "total_time_taken": 5.0
+ },
+ "search_parameters": {
+  "engine": "google_flights",
+  "hl": "en",
+  "gl": "de",
+  "type": "1",
+  "departure_id": "FRA",
+  "arrival_id": "JFK,EWR",
+  "outbound_date": "2027-05-10",
+  "return_date": "2027-05-24",
+  "travel_class": 1,
+  "adults": 2,
+  "currency": "EUR"
+ },
+ "best_flights": [
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "FRA Airport",
+      "id": "FRA",
+      "time": "2027-05-10 10:05"
+     },
+     "arrival_airport": {
+      "name": "JFK Airport",
+      "id": "JFK",
+      "time": "2027-05-10 12:50"
+     },
+     "duration": 525,
+     "airplane": "Airbus A330",
+     "airline": "Lufthansa",
+     "airline_logo": "https://example.com/logo.png",
+     "travel_class": "Economy",
+     "flight_number": "LH 400",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)"
+     ]
+    }
+   ],
+   "total_duration": 525,
+   "carbon_emissions": {
+    "this_flight": 500000,
+    "typical_for_this_route": 520000,
+    "difference_percent": -4
+   },
+   "type": "Round trip",
+   "airline_logo": "https://example.com/logo.png",
+   "price": 1412,
+   "departure_token": "EXAMPLETOKEN"
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "FRA Airport",
+      "id": "FRA",
+      "time": "2027-05-10 07:40"
+     },
+     "arrival_airport": {
+      "name": "KEF Airport",
+      "id": "KEF",
+      "time": "2027-05-10 09:10"
+     },
+     "duration": 210,
+     "airplane": "Airbus A330",
+     "airline": "Icelandair",
+     "airline_logo": "https://example.com/logo.png",
+     "travel_class": "Economy",
+     "flight_number": "FI 521",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)"
+     ]
+    },
+    {
+     "departure_airport": {
+      "name": "KEF Airport",
+      "id": "KEF",
+      "time": "2027-05-10 10:40"
+     },
+     "arrival_airport": {
+      "name": "JFK Airport",
+      "id": "JFK",
+      "time": "2027-05-10 12:30"
+     },
+     "duration": 350,
+     "airplane": "Airbus A330",
+     "airline": "Icelandair",
+     "airline_logo": "https://example.com/logo.png",
+     "travel_class": "Economy",
+     "flight_number": "FI 615",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 90,
+     "name": "KEF Airport",
+     "id": "KEF"
+    }
+   ],
+   "total_duration": 650,
+   "carbon_emissions": {
+    "this_flight": 500000,
+    "typical_for_this_route": 520000,
+    "difference_percent": -4
+   },
+   "type": "Round trip",
+   "airline_logo": "https://example.com/logo.png",
+   "price": 1188,
+   "departure_token": "EXAMPLETOKEN"
+  }
+ ],
+ "other_flights": [
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "FRA Airport",
+      "id": "FRA",
+      "time": "2027-05-10 06:00"
+     },
+     "arrival_airport": {
+      "name": "LHR Airport",
+      "id": "LHR",
+      "time": "2027-05-10 06:45"
+     },
+     "duration": 105,
+     "airplane": "Airbus A330",
+     "airline": "British Airways",
+     "airline_logo": "https://example.com/logo.png",
+     "travel_class": "Economy",
+     "flight_number": "BA 903",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)"
+     ]
+    },
+    {
+     "departure_airport": {
+      "name": "LHR Airport",
+      "id": "LHR",
+      "time": "2027-05-10 09:00"
+     },
+     "arrival_airport": {
+      "name": "DUB Airport",
+      "id": "DUB",
+      "time": "2027-05-10 10:20"
+     },
+     "duration": 80,
+     "airplane": "Airbus A330",
+     "airline": "Aer Lingus",
+     "airline_logo": "https://example.com/logo.png",
+     "travel_class": "Economy",
+     "flight_number": "EI 155",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)"
+     ]
+    },
+    {
+     "departure_airport": {
+      "name": "DUB Airport",
+      "id": "DUB",
+      "time": "2027-05-10 13:00"
+     },
+     "arrival_airport": {
+      "name": "EWR Airport",
+      "id": "EWR",
+      "time": "2027-05-10 15:20"
+     },
+     "duration": 440,
+     "airplane": "Airbus A330",
+     "airline": "Aer Lingus",
+     "airline_logo": "https://example.com/logo.png",
+     "travel_class": "Economy",
+     "flight_number": "EI 109",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 90,
+     "name": "LHR Airport",
+     "id": "LHR"
+    },
+    {
+     "duration": 90,
+     "name": "DUB Airport",
+     "id": "DUB"
+    }
+   ],
+   "total_duration": 920,
+   "carbon_emissions": {
+    "this_flight": 500000,
+    "typical_for_this_route": 520000,
+    "difference_percent": -4
+   },
+   "type": "Round trip",
+   "airline_logo": "https://example.com/logo.png",
+   "price": 1105,
+   "departure_token": "EXAMPLETOKEN"
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "FRA Airport",
+      "id": "FRA",
+      "time": "2027-05-10 16:00"
+     },
+     "arrival_airport": {
+      "name": "EWR Airport",
+      "id": "EWR",
+      "time": "2027-05-10 18:45"
+     },
+     "duration": 525,
+     "airplane": "Airbus A330",
+     "airline": "United",
+     "airline_logo": "https://example.com/logo.png",
+     "travel_class": "Economy",
+     "flight_number": "UA 961",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)"
+     ]
+    }
+   ],
+   "total_duration": 525,
+   "carbon_emissions": {
+    "this_flight": 500000,
+    "typical_for_this_route": 520000,
+    "difference_percent": -4
+   },
+   "type": "Round trip",
+   "airline_logo": "https://example.com/logo.png"
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "FRA Airport",
+      "id": "FRA",
+      "time": "2027-05-10 13:15"
+     },
+     "arrival_airport": {
+      "name": "EWR Airport",
+      "id": "EWR",
+      "time": "2027-05-10 16:05"
+     },
+     "duration": 530,
+     "airplane": "Airbus A330",
+     "airline": "United",
+     "airline_logo": "https://example.com/logo.png",
+     "travel_class": "Economy",
+     "flight_number": "UA 960",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)"
+     ]
+    }
+   ],
+   "total_duration": 530,
+   "carbon_emissions": {
+    "this_flight": 500000,
+    "typical_for_this_route": 520000,
+    "difference_percent": -4
+   },
+   "type": "Round trip",
+   "airline_logo": "https://example.com/logo.png",
+   "price": 1490.5,
+   "departure_token": "EXAMPLETOKEN"
+  }
+ ],
+ "price_insights": {
+  "lowest_price": 1105,
+  "price_level": "low",
+  "typical_price_range": [
+   1250,
+   1700
+  ],
+  "price_history": [
+   [
+    1780000000,
+    1320
+   ],
+   [
+    1780086400,
+    1290
+   ]
+  ]
+ },
+ "airports": [
+  {
+   "departure": [
+    {
+     "airport": {
+      "id": "FRA",
+      "name": "FRA Airport"
+     }
+    }
+   ],
+   "arrival": [
+    {
+     "airport": {
+      "id": "JFK",
+      "name": "JFK Airport"
+     }
+    }
+   ]
+  }
+ ]
+}

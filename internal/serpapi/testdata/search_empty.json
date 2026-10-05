@@ -1,0 +1,26 @@
+{
+ "search_metadata": {
+  "id": "example0000000000000001",
+  "status": "Success",
+  "created_at": "2026-10-05 08:00:00 UTC",
+  "processed_at": "2026-10-05 08:00:00 UTC",
+  "total_time_taken": 5.0
+ },
+ "search_parameters": {
+  "engine": "google_flights",
+  "hl": "en",
+  "gl": "de",
+  "type": "1",
+  "departure_id": "FRA",
+  "arrival_id": "JFK,EWR",
+  "outbound_date": "2027-05-10",
+  "return_date": "2027-05-24",
+  "travel_class": 1,
+  "adults": 2,
+  "currency": "EUR"
+ },
+ "search_information": {
+  "flights_results_state": "Fully empty"
+ },
+ "error": "Google Flights hasn't returned any results for this query."
+}

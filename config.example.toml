@@ -11,10 +11,11 @@ origins = ["FRA", "MUC"]          # departure airports, each checked separately
 destination = ["JFK", "EWR"]      # any of these counts as the destination
 cabin = "economy"
 currency = "EUR"
+market = "de"                     # Google's country (gl); prices can differ by market
 
 [constraints]           # what counts as an acceptable itinerary
 max_stops = 1
-max_duration_h = 14
+max_duration_h = 14     # outbound travel time; 0 = no limit
 
 # One [[option]] per fixed date combination to track.
 [[option]]
@@ -32,7 +33,9 @@ home_by = 2027-06-22
 [budget]
 monthly_calls = 250     # SerpApi searches per quota cycle
 reserve = 10            # kept back for "Search now" and retries
-reset_day = 1           # day of the month the quota resets
+reset_day = 1           # day of the month the quota renews (see your SerpApi account)
+max_days_ahead = 331    # an option whose return is further out is not searched yet:
+                        # Google has no flights that far ahead, and empty searches still count
 
 [weights]               # optional, default 1; higher = checked more often
 # FRA = 2

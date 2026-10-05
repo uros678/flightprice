@@ -35,6 +35,15 @@ startup; restart the container after a change.
 The SerpApi key never goes into the config file. Pass it as `SERPAPI_KEY`
 or, with Docker secrets, as a file named by `SERPAPI_KEY_FILE`.
 
+## Commands
+
+```sh
+flightprice check-config -config config.toml        # check the file, no searches
+flightprice search -origin FRA -option A            # one live search (uses 1 SerpApi search)
+```
+
+`serve` (the scheduler and the web page) is not written yet.
+
 ## Run with Docker Compose
 
 ```sh
