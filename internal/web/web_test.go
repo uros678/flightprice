@@ -301,7 +301,9 @@ func TestPage(t *testing.T) {
 
 	h := ts.Handler()
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("GET", "/?msg=hello", nil))
+	req := httptest.NewRequest("GET", "/", nil)
+	req.AddCookie(&http.Cookie{Name: msgCookie, Value: "hello"})
+	h.ServeHTTP(rec, req)
 	if rec.Code != 200 {
 		t.Fatalf("GET / = %d: %s", rec.Code, rec.Body)
 	}
@@ -328,10 +330,10 @@ func TestPage(t *testing.T) {
 		t.Error("the page refreshes itself with no search running")
 	}
 
-	// While a search runs, the page refreshes itself to "/", without the message.
+	// While a search runs, the page refreshes itself.
 	ts.mu.Lock()
 	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("GET", "/?msg=hello", nil))
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
 	ts.mu.Unlock()
 	if !strings.Contains(rec.Body.String(), `<meta http-equiv="refresh" content="10; url=/">`) {
 		t.Error("the page does not refresh itself while a search runs")
@@ -379,12 +381,33 @@ func TestSearchNowButton(t *testing.T) {
 	}
 
 	rec := post("same-origin")
-	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "Search+started+for+BER") {
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
 		t.Errorf("POST = %d, Location %q", rec.Code, rec.Header().Get("Location"))
 	}
 	waitIdle(t, ts.Server)
 	if ts.fake.count() != 1 {
 		t.Errorf("searches = %d", ts.fake.count())
+	}
+
+	// The message shows on the next view only, never from the URL.
+	get := func(target string, cookies []*http.Cookie) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", target, nil)
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	page := get("/", rec.Result().Cookies())
+	if !strings.Contains(page.Body.String(), "Search started for BER") {
+		t.Error("the message is not shown after the redirect")
+	}
+	if c := page.Result().Cookies(); len(c) != 1 || c[0].MaxAge >= 0 {
+		t.Errorf("the message cookie is not cleared: %v", c)
+	}
+	if strings.Contains(get("/?msg=hello", nil).Body.String(), "hello") {
+		t.Error("a message is taken from the URL")
 	}
 }
 

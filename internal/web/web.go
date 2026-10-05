@@ -100,8 +100,17 @@ func securityHeaders(h http.Handler) http.Handler {
 	})
 }
 
+// msgCookie carries the Search now result to the next page view only, so a
+// reload does not show it again.
+const msgCookie = "msg"
+
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	data, err := s.page(r.Context(), r.URL.Query().Get("msg"))
+	var msg string
+	if c, err := r.Cookie(msgCookie); err == nil {
+		msg, _ = url.QueryUnescape(c.Value)
+		http.SetCookie(w, &http.Cookie{Name: msgCookie, Path: "/", MaxAge: -1})
+	}
+	data, err := s.page(r.Context(), msg)
 	if err != nil {
 		s.log.Error("page", "err", err)
 		http.Error(w, "the page could not be built, see the log", http.StatusInternalServerError)
@@ -126,7 +135,9 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	if err := s.Manual(origin); err != nil {
 		msg = "Not started: " + err.Error() + "."
 	}
-	http.Redirect(w, r, "/?msg="+url.QueryEscape(msg), http.StatusSeeOther)
+	http.SetCookie(w, &http.Cookie{Name: msgCookie, Value: url.QueryEscape(msg), Path: "/", MaxAge: 60,
+		HttpOnly: true, SameSite: http.SameSiteStrictMode})
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // handleData is the price history as JSON.
