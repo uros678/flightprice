@@ -25,6 +25,12 @@ type Searcher interface {
 	Search(ctx context.Context, req serpapi.Request) (serpapi.Result, error)
 }
 
+// accountReader reads SerpApi's own count of this cycle's searches.
+// *serpapi.Client is one; a Searcher without it uses the local count only.
+type accountReader interface {
+	Account(ctx context.Context) (serpapi.Account, error)
+}
+
 // Server holds everything the scheduler and the page need.
 type Server struct {
 	cfg     *config.Config
@@ -39,6 +45,17 @@ type Server struct {
 	retryAfter time.Duration // before retrying failed searches
 
 	mu sync.Mutex // held while searches run
+
+	usageMu sync.Mutex
+	usage   usageOffset
+}
+
+// usageOffset is how many searches of a quota cycle SerpApi counted that
+// the database does not know (searches by hand, another program, a lost
+// database). It is learned before every run and added to the local count.
+type usageOffset struct {
+	cycle  time.Time // the cycle it belongs to
+	offset int
 }
 
 // New makes a Server. ctx ends the scheduler and background searches.

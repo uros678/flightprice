@@ -50,6 +50,22 @@ func (f *fake) Search(ctx context.Context, req serpapi.Request) (serpapi.Result,
 		}}, nil
 }
 
+// fakeAccount is a fake that also answers the account call, as SerpApi
+// does: it counts every search it got, plus extra ones made elsewhere.
+type fakeAccount struct {
+	*fake
+	extra   int
+	renewal string
+	err     error
+}
+
+func (f *fakeAccount) Account(ctx context.Context) (serpapi.Account, error) {
+	if f.err != nil {
+		return serpapi.Account{}, f.err
+	}
+	return serpapi.Account{SearchesPerMonth: 60, ThisMonthUsage: f.count() + f.extra, RenewalDate: f.renewal}, nil
+}
+
 func (f *fake) count() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -372,5 +388,52 @@ func TestMoney(t *testing.T) {
 	}
 	if got := money(150000, "CHF"); got != "CHF 1,500" {
 		t.Errorf("CHF: %q", got)
+	}
+}
+
+func TestUsageFromSerpApi(t *testing.T) {
+	ts := newTestServer(t, "")
+	acct := &fakeAccount{fake: ts.fake, extra: 40, renewal: "2026-08-01"}
+	ts.search = acct
+	ctx := context.Background()
+
+	// SerpApi already counted 40 searches made elsewhere: 20 are left over
+	// 31 days, enough for the daily probe.
+	p, err := ts.RunPlanned(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Used != 40 || len(p.Searches) != 1 {
+		t.Errorf("used = %d, %d searches; want SerpApi's 40 and the probe", p.Used, len(p.Searches))
+	}
+	if n, _ := ts.used(ctx, ts.now()); n != 41 {
+		t.Errorf("after the probe: used = %d, want 41", n)
+	}
+
+	// With only 10 left, the share is too small even for a probe.
+	acct.extra = 50
+	ts.SyncUsage(ctx)
+	if p, _ := ts.Plan(ctx); p.Used != 51 || len(p.Searches) != 0 {
+		t.Errorf("10 left: used %d, searches %+v", p.Used, p.Searches)
+	}
+
+	// The hard stop uses the same count.
+	acct.extra = 59
+	ts.SyncUsage(ctx)
+	if _, err := ts.searchOne(ctx, "FRA", "A", SourceManual); !errors.Is(err, errBudget) {
+		t.Errorf("search past SerpApi's count: %v", err)
+	}
+
+	// The account call failing keeps the last known offset.
+	acct.err = errors.New("down")
+	ts.SyncUsage(ctx)
+	if n, _ := ts.used(ctx, ts.now()); n != 60 {
+		t.Errorf("after a failed sync: used = %d", n)
+	}
+
+	// A new cycle forgets the old offset.
+	*ts.clock = time.Date(2026, 8, 2, 7, 0, 0, 0, ts.cfg.Schedule.Location())
+	if n, _ := ts.used(ctx, ts.now()); n != 0 {
+		t.Errorf("next cycle: used = %d", n)
 	}
 }

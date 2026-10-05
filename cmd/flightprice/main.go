@@ -145,6 +145,7 @@ func showPlan(args []string) error {
 		return err
 	}
 	defer st.Close()
+	srv.SyncUsage(ctx) // free; without a key the local count is used
 	p, err := srv.Plan(ctx)
 	if err != nil {
 		return err

@@ -1,5 +1,6 @@
 # Local configuration and secrets, never committed
-config.toml
+config*.toml
+!config.example.toml
 secrets/
 .env
 

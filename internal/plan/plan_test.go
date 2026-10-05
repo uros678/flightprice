@@ -147,7 +147,7 @@ func TestShortAndLongCycles(t *testing.T) {
 			}
 		}
 		// At most one airport check's worth of the budget is left over.
-		if total < cfg.Budget.MonthlyCalls-1 {
+		if total < cfg.Budget.MonthlyCalls-2 {
 			t.Errorf("%s: only %d of %d calls used", tc.name, total, cfg.Budget.MonthlyCalls)
 		}
 		for origin, days := range checks {
@@ -245,5 +245,28 @@ func TestNeverCheckedFirst(t *testing.T) {
 	got := ranked(cfg, now, last)
 	if want := []string{"BER", "HAM", "FRA", "MUC", "DUS"}; !slices.Equal(got, want) {
 		t.Errorf("ranked = %v, want %v", got, want)
+	}
+}
+
+func TestSmallRestIsSpread(t *testing.T) {
+	cfg := testConfig(t, "[budget]\nreset_day = 5\n")
+	// 20 calls left for 20 days with both options on sale: one airport
+	// check every other day, not 10 checks in the first 10 days.
+	start := at(2027, 4, 15)
+	used, last := 230, map[string]time.Time{}
+	var days []int
+	for d := 0; d < 20; d++ {
+		now := start.AddDate(0, 0, d)
+		p := Make(cfg, now, used, last, map[string]bool{"A": true, "B": true})
+		used += p.Calls
+		if p.Calls > 0 {
+			days = append(days, d)
+			for _, o := range p.Checks() {
+				last[o] = now
+			}
+		}
+	}
+	if len(days) < 5 || days[len(days)-1] < 15 {
+		t.Errorf("checks on days %v: the rest is not spread over the cycle", days)
 	}
 }

@@ -258,3 +258,30 @@ func TestRealResponses(t *testing.T) {
 		t.Logf("%s: %s, %d offers", filepath.Base(f), res.Status, len(res.Offers))
 	}
 }
+
+func TestAccount(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("api_key") != testKey {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write(fixture(t, "error_auth.json"))
+			return
+		}
+		w.Write([]byte(`{"plan_name": "Free Plan", "searches_per_month": 250, "plan_searches_left": 243,
+			"this_month_usage": 7, "plan_renewal_date": "2026-11-05", "account_email": "someone@example.com"}`))
+	}))
+	defer srv.Close()
+
+	a, err := (&Client{Key: testKey, AccountEndpoint: srv.URL}).Account(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.ThisMonthUsage != 7 || a.PlanSearchesLeft != 243 || a.SearchesPerMonth != 250 || a.RenewalDate != "2026-11-05" {
+		t.Errorf("account = %+v", a)
+	}
+
+	_, err = (&Client{Key: "wrong", AccountEndpoint: srv.URL}).Account(context.Background())
+	var se *Error
+	if !errors.As(err, &se) || se.Status != AuthError {
+		t.Errorf("wrong key: %v", err)
+	}
+}

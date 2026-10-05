@@ -24,14 +24,18 @@ import (
 // DefaultEndpoint is SerpApi's search API.
 const DefaultEndpoint = "https://serpapi.com/search.json"
 
+// DefaultAccountEndpoint is SerpApi's account API. Reading it is free.
+const DefaultAccountEndpoint = "https://serpapi.com/account.json"
+
 // maxBody caps a response. Real ones are 20-40 KB.
 const maxBody = 8 << 20
 
 // Client runs searches. The zero value needs only Key.
 type Client struct {
-	Key      string
-	Endpoint string       // DefaultEndpoint when empty
-	HTTP     *http.Client // a client with a 90 s timeout when nil
+	Key             string
+	Endpoint        string       // DefaultEndpoint when empty
+	AccountEndpoint string       // DefaultAccountEndpoint when empty
+	HTTP            *http.Client // a client with a 90 s timeout when nil
 }
 
 var defaultHTTP = &http.Client{Timeout: 90 * time.Second}
@@ -148,13 +152,53 @@ func (c *Client) Search(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		return c.fail(Result{}, InvalidRequest, err.Error())
 	}
-	endpoint := c.Endpoint
+	body, st, msg := c.get(ctx, c.Endpoint, DefaultEndpoint, q)
+	if st != "" {
+		return c.fail(Result{Raw: body}, st, msg)
+	}
+	res, err := Parse(body)
+	if err != nil {
+		return c.fail(res, ProviderError, err.Error())
+	}
+	return res, nil
+}
+
+// Account is the part of SerpApi's account information flightprice uses.
+type Account struct {
+	PlanName         string `json:"plan_name"`
+	SearchesPerMonth int    `json:"searches_per_month"`
+	PlanSearchesLeft int    `json:"plan_searches_left"`
+	ThisMonthUsage   int    `json:"this_month_usage"`
+	RenewalDate      string `json:"plan_renewal_date"` // YYYY-MM-DD
+}
+
+// Account reads the plan and this cycle's usage. It costs no search.
+func (c *Client) Account(ctx context.Context) (Account, error) {
+	q := url.Values{}
+	q.Set("api_key", c.Key)
+	body, st, msg := c.get(ctx, c.AccountEndpoint, DefaultAccountEndpoint, q)
+	if st != "" {
+		_, err := c.fail(Result{}, st, msg)
+		return Account{}, err
+	}
+	var a Account
+	if err := json.Unmarshal(body, &a); err != nil {
+		_, err := c.fail(Result{}, ProviderError, "unreadable account response: "+err.Error())
+		return Account{}, err
+	}
+	return a, nil
+}
+
+// get sends a GET with query q to endpoint (fallback when empty). It returns
+// the body, and on failure a Status and a message; the status is "" when
+// SerpApi answered 200.
+func (c *Client) get(ctx context.Context, endpoint, fallback string, q url.Values) ([]byte, Status, string) {
 	if endpoint == "" {
-		endpoint = DefaultEndpoint
+		endpoint = fallback
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"?"+q.Encode(), nil)
 	if err != nil {
-		return c.fail(Result{}, InvalidRequest, err.Error())
+		return nil, InvalidRequest, err.Error()
 	}
 	client := c.HTTP
 	if client == nil {
@@ -168,24 +212,20 @@ func (c *Client) Search(ctx context.Context, req Request) (Result, error) {
 		if errors.As(err, &ue) {
 			err = ue.Err
 		}
-		return c.fail(Result{}, NetworkError, err.Error())
+		return nil, NetworkError, err.Error()
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
 	if err != nil {
-		return c.fail(Result{}, NetworkError, "reading the response: "+err.Error())
+		return nil, NetworkError, "reading the response: " + err.Error()
 	}
 	if len(body) > maxBody {
-		return c.fail(Result{}, ProviderError, "response larger than 8 MB")
+		return nil, ProviderError, "response larger than 8 MB"
 	}
 	if resp.StatusCode != http.StatusOK {
-		return c.fail(Result{Raw: body}, statusFor(resp.StatusCode), errorText(body, resp.Status))
+		return body, statusFor(resp.StatusCode), errorText(body, resp.Status)
 	}
-	res, err := Parse(body)
-	if err != nil {
-		return c.fail(res, ProviderError, err.Error())
-	}
-	return res, nil
+	return body, "", ""
 }
 
 // fail returns res with status st and an *Error, with the key cut out of

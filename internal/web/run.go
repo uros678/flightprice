@@ -42,8 +42,7 @@ func (s *Server) Plan(ctx context.Context) (plan.Plan, error) {
 }
 
 func (s *Server) planAt(ctx context.Context, now time.Time) (plan.Plan, error) {
-	start, _ := plan.Cycle(now, s.cfg.Budget.ResetDay)
-	used, err := s.store.CallsSince(ctx, start)
+	used, err := s.used(ctx, now)
 	if err != nil {
 		return plan.Plan{}, err
 	}
@@ -60,6 +59,59 @@ func (s *Server) planAt(ctx context.Context, now time.Time) (plan.Plan, error) {
 	return plan.Make(s.cfg, now, used, last, onSale), nil
 }
 
+// used is the number of searches counted against the quota in the cycle of
+// now: the database's count plus what SerpApi counted beyond it.
+func (s *Server) used(ctx context.Context, now time.Time) (int, error) {
+	start, _ := plan.Cycle(now, s.cfg.Budget.ResetDay)
+	n, err := s.store.CallsSince(ctx, start)
+	if err != nil {
+		return 0, err
+	}
+	s.usageMu.Lock()
+	defer s.usageMu.Unlock()
+	if s.usage.cycle.Equal(start) {
+		n += s.usage.offset
+	}
+	return n, nil
+}
+
+// SyncUsage asks SerpApi how many searches this cycle has used (free) and
+// remembers the difference to the database's count. A failure is only
+// logged: the local count still works.
+func (s *Server) SyncUsage(ctx context.Context) {
+	ar, ok := s.search.(accountReader)
+	if !ok {
+		return
+	}
+	acct, err := ar.Account(ctx)
+	if err != nil {
+		s.log.Warn("reading the SerpApi usage failed, using the local count", "err", err)
+		return
+	}
+	now := s.now()
+	start, end := plan.Cycle(now, s.cfg.Budget.ResetDay)
+	local, err := s.store.CallsSince(ctx, start)
+	if err != nil {
+		s.log.Error("counting searches", "err", err)
+		return
+	}
+	offset := max(acct.ThisMonthUsage-local, 0)
+	s.usageMu.Lock()
+	s.usage = usageOffset{cycle: start, offset: offset}
+	s.usageMu.Unlock()
+	if offset > 0 {
+		s.log.Info("SerpApi counted more searches than the database", "serpapi", acct.ThisMonthUsage, "local", local)
+	}
+	if acct.RenewalDate != "" && acct.RenewalDate != end.Format(config.DateLayout) {
+		s.log.Warn("budget.reset_day does not match the SerpApi plan", "serpapi_renews", acct.RenewalDate,
+			"config_renews", end.Format(config.DateLayout))
+	}
+	if acct.SearchesPerMonth > 0 && acct.SearchesPerMonth != s.cfg.Budget.MonthlyCalls {
+		s.log.Warn("budget.monthly_calls does not match the SerpApi plan", "serpapi", acct.SearchesPerMonth,
+			"config", s.cfg.Budget.MonthlyCalls)
+	}
+}
+
 // RunPlanned runs today's plan: the planned searches one after the other,
 // then one retry of those that failed for a passing reason, then the weekly
 // backup. Only one run (planned or manual) goes on at a time.
@@ -69,6 +121,7 @@ func (s *Server) RunPlanned(ctx context.Context) (plan.Plan, error) {
 	}
 	defer s.mu.Unlock()
 
+	s.SyncUsage(ctx)
 	p, err := s.Plan(ctx)
 	if err != nil {
 		return p, err
@@ -117,16 +170,18 @@ func (s *Server) Manual(origin string) error {
 	if len(options) == 0 {
 		return errors.New("no date option is on sale yet")
 	}
-	start, _ := plan.Cycle(s.now(), s.cfg.Budget.ResetDay)
-	used, err := s.store.CallsSince(s.ctx, start)
+	if !s.mu.TryLock() {
+		return ErrBusy
+	}
+	s.SyncUsage(s.ctx)
+	used, err := s.used(s.ctx, s.now())
 	if err != nil {
+		s.mu.Unlock()
 		return err
 	}
 	if used+len(options) > s.cfg.Budget.MonthlyCalls {
+		s.mu.Unlock()
 		return errBudget
-	}
-	if !s.mu.TryLock() {
-		return ErrBusy
 	}
 	go func() {
 		defer s.mu.Unlock()
@@ -166,8 +221,7 @@ func (s *Server) searchable() []string {
 // budget is used up, whatever the plan said.
 func (s *Server) searchOne(ctx context.Context, origin, option, source string) (serpapi.Status, error) {
 	now := s.now()
-	start, _ := plan.Cycle(now, s.cfg.Budget.ResetDay)
-	used, err := s.store.CallsSince(ctx, start)
+	used, err := s.used(ctx, now)
 	if err != nil {
 		return "", err
 	}

@@ -4,11 +4,12 @@
 //
 // The rules (design section 11):
 //   - The calls left in the quota cycle, minus a reserve for manual searches
-//     and retries, are spread evenly over the days left, rounded up to whole
-//     airport checks (never past what is left). The plan is made again every
-//     day, so a day that got a little more is evened out by the next; rounding
-//     down would leave calls unused, as a day cannot take more than every
-//     airport once. Over the cycle's last 7 days the
+//     and retries, are spread evenly over the days left, rounded to the
+//     nearest whole airport check (never past what is left). The plan is
+//     made again every day, so a day that got a little more is evened out by
+//     the next. Rounding down would leave calls unused (a day cannot take
+//     more than every airport once); rounding up would spend a small rest of
+//     the budget in the first days and leave the rest of the cycle empty. Over the cycle's last 7 days the
 //     reserve is released step by step, so nothing is wasted.
 //   - An option is not searched before its return date is within
 //     max_days_ahead: Google has no flights that far out, and an empty search
@@ -134,7 +135,7 @@ func Make(cfg *config.Config, now time.Time, used int, lastChecked map[string]ti
 	nProbes := min(len(probes), int(math.Round(p.Share)), left)
 	origins := ranked(cfg, now, lastChecked)
 	if len(active) > 0 {
-		checks := int(math.Ceil((p.Share - float64(nProbes)) / float64(len(active))))
+		checks := int(math.Round((p.Share - float64(nProbes)) / float64(len(active))))
 		checks = min(max(checks, 0), len(origins), (left-nProbes)/len(active))
 		for _, origin := range origins[:checks] {
 			for _, opt := range active {
