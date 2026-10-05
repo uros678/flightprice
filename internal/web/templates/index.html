@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>flightprice</title>
+<style>
+:root {
+  --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #677084; --line: #e1e4ea;
+  --good: #1f8a4c; --bad: #c0392b; --accent: #2f5fb3; --mark: #eef3fc;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14171c; --card: #1d2128; --text: #e6e8ec; --muted: #9aa3b2; --line: #2e333c;
+          --good: #4cc27f; --bad: #ef6b5b; --accent: #7aa7f5; --mark: #23304a; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+       font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 16px; }
+header h1 { font-size: 22px; margin: 4px 0 2px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.msg { background: var(--mark); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin: 12px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 16px 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.card h2 { font-size: 17px; margin: 0 0 2px; }
+.price { font-size: 32px; font-weight: 650; margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+.down { color: var(--good); } .up { color: var(--bad); }
+.level { display: inline-block; border-radius: 99px; padding: 0 8px; font-size: 12px; border: 1px solid var(--line); }
+.level.low { color: var(--good); border-color: var(--good); }
+.level.high { color: var(--bad); border-color: var(--bad); }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 16px 0; }
+section h2 { font-size: 16px; margin: 0 0 10px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; font-size: 13px; color: var(--muted); }
+td.num, th.num { text-align: right; }
+tr.best td { background: var(--mark); }
+tr.out td { color: var(--muted); }
+td.bad { color: var(--bad); }
+.scroll { overflow-x: auto; }
+.chart { width: 100%; height: auto; display: block; margin-top: 12px; }
+.chart .grid { stroke: var(--line); }
+.chart .axis { fill: var(--muted); font-size: 11px; }
+.chart .threshold { stroke: var(--bad); stroke-dasharray: 5 4; }
+form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+select, button { font: inherit; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line);
+                 background: var(--card); color: var(--text); }
+button { background: var(--accent); border-color: var(--accent); color: #fff; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+details summary { cursor: pointer; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>flightprice</h1>
+  <div class="muted">{{.Passengers}} · {{.Route}} · {{.Constraints}}</div>
+  <div class="muted small">As of {{.Now}}{{if .Busy}} · <strong>a search is running</strong>{{end}}</div>
+</header>
+
+{{with .Message}}<div class="msg">{{.}}</div>{{end}}
+
+<div class="cards">
+{{range .Options}}
+  <div class="card">
+    <h2>Option {{.Name}}</h2>
+    <div class="muted small">{{.Dates}}{{with .HomeBy}} · home by {{.}}{{end}} · {{.State}}</div>
+    {{with .Best}}
+      <div class="price">{{.Price}}</div>
+      <div>best now, from <strong>{{.Origin}}</strong> · {{.When}}
+        {{with .Level}}<span class="level {{.}}">Google: {{.}}</span>{{end}}</div>
+      {{if .Change}}<div class="small{{if .Down}} down{{else if .Up}} up{{end}}">{{.Change}}</div>{{end}}
+      <div class="muted small">{{.Detail}}</div>
+    {{else}}
+      <p class="muted">No prices yet.</p>
+    {{end}}
+    {{with .Lowest}}<div class="small" style="margin-top:8px">Lowest so far: <strong>{{.Price}}</strong> from {{.Origin}}, {{.When}}</div>{{end}}
+    {{.Chart}}
+  </div>
+{{end}}
+</div>
+
+<section>
+  <h2>By airport</h2>
+  <div class="scroll">
+  <table>
+    <tr><th>Airport</th><th>Last checked</th>
+      {{range .Options}}<th class="num">{{.Name}} latest</th><th class="num">{{.Name}} lowest</th>{{end}}</tr>
+    {{range .Rows}}
+    <tr>
+      <td><strong>{{.Origin}}</strong>{{if gt .Weight 1}} <span class="muted small">×{{.Weight}}</span>{{end}}</td>
+      <td class="muted">{{.Checked}}</td>
+      {{range .Cells}}
+        <td class="num"{{if .Best}} style="background:var(--mark)"{{end}}>{{.Latest}}{{with .When}}<div class="muted small">{{.}}</div>{{end}}</td>
+        <td class="num">{{.Lowest}}</td>
+      {{end}}
+    </tr>
+    {{end}}
+  </table>
+  </div>
+</section>
+
+{{range .Options}}{{if .Offers}}
+<section>
+  <h2>Option {{.Name}}: latest offers</h2>
+  <div class="scroll">
+  <table>
+    <tr><th class="num">Total</th><th>From</th><th>Stops</th><th>Time</th><th>Route</th><th>Airlines</th><th>Departs</th></tr>
+    {{range .Offers}}
+    <tr{{if not .OK}} class="out"{{end}}>
+      <td class="num"><strong>{{.Price}}</strong></td><td>{{.Origin}}</td><td>{{.Stops}}</td><td>{{.Duration}}</td>
+      <td>{{.Route}}</td><td>{{.Airlines}} <span class="muted small">{{.Flights}}</span></td><td class="small">{{.Depart}}</td>
+    </tr>
+    {{end}}
+  </table>
+  </div>
+  <p class="muted small">Grey rows are outside the limits ({{$.Constraints}}) and are not tracked.</p>
+</section>
+{{end}}{{end}}
+
+<section>
+  <h2>Searches</h2>
+  <p>
+    <strong>{{.Budget.Used}} / {{.Budget.Monthly}}</strong> searches used this month · renews {{.Budget.Renews}}
+    ({{.Budget.DaysLeft}} days) · {{.Budget.Today}} today<br>
+    Next run: {{.Budget.NextRun}}: {{.Budget.Next}}
+  </p>
+  <form method="post" action="/run">
+    <select name="origin" {{if not .CanSearch}}disabled{{end}}>
+      {{range .Origins}}<option>{{.}}</option>{{end}}
+    </select>
+    <button {{if or (not .CanSearch) .Busy}}disabled{{end}}>Search now</button>
+    <span class="muted small">{{.SearchNote}}</span>
+  </form>
+</section>
+
+<section>
+  <h2>Run log</h2>
+  {{if .Runs}}
+  <div class="scroll">
+  <table>
+    <tr><th>When</th><th>Option</th><th>From</th><th>Source</th><th>Status</th><th class="num">Price</th></tr>
+    {{range .Runs}}
+    <tr>
+      <td>{{.When}}</td><td>{{.Option}}</td><td>{{.Origin}}</td><td class="muted">{{.Source}}</td>
+      <td{{if .Bad}} class="bad" title="{{.Error}}"{{end}}>{{.Status}}</td><td class="num">{{.Price}}</td>
+    </tr>
+    {{end}}
+  </table>
+  </div>
+  {{else}}<p class="muted">No searches yet.</p>{{end}}
+</section>
+
+<p class="muted small">Prices are round-trip totals for all passengers, from SerpApi (Google Flights).
+  Price history as <a href="/data.json">JSON</a>.</p>
+</main>
+</body>
+</html>

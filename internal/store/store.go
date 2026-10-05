@@ -284,6 +284,108 @@ func (s *Store) Observations(ctx context.Context, option, origin string, since t
 	return out, rows.Err()
 }
 
+// CountRuns is the number of runs since t whose source is one of sources.
+func (s *Store) CountRuns(ctx context.Context, since time.Time, sources ...string) (int, error) {
+	if len(sources) == 0 {
+		return 0, errors.New("no source given")
+	}
+	args := []any{since.UTC().Format(timeLayout)}
+	for _, src := range sources {
+		args = append(args, src)
+	}
+	var n int
+	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM runs WHERE started_at >= ? AND source IN ("+
+		placeholders(len(sources))+")", args...).Scan(&n)
+	return n, err
+}
+
+// RunInfo is one run for the log on the page.
+type RunInfo struct {
+	ID         int64
+	Option     string
+	Origin     string
+	At         time.Time
+	Source     string
+	Status     string
+	Error      string
+	PriceCents int64 // tracked price, 0 when the run has none
+}
+
+// RecentRuns returns the newest runs first.
+func (s *Store) RecentRuns(ctx context.Context, limit int) ([]RunInfo, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT r.id, r.option, r.origin, r.started_at, r.source, r.status,
+		COALESCE(r.error, ''), COALESCE(o.price_cents, 0)
+		FROM runs r LEFT JOIN observations o ON o.run_id = r.id
+		ORDER BY r.started_at DESC, r.id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []RunInfo
+	for rows.Next() {
+		var r RunInfo
+		var at string
+		if err := rows.Scan(&r.ID, &r.Option, &r.Origin, &at, &r.Source, &r.Status, &r.Error, &r.PriceCents); err != nil {
+			return nil, err
+		}
+		if r.At, err = time.Parse(timeLayout, at); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// Offer is a stored offer with the run it belongs to.
+type Offer struct {
+	RunID         int64
+	Option        string
+	Origin        string
+	PriceCents    int64
+	Currency      string
+	Stops         int
+	DurationMin   int
+	Airlines      []string
+	Route         []string
+	FlightNumbers []string
+	DepartTime    string
+	ArriveTime    string
+}
+
+// Offers returns all offers of the given runs, cheapest first.
+func (s *Store) Offers(ctx context.Context, runIDs []int64) ([]Offer, error) {
+	if len(runIDs) == 0 {
+		return nil, nil
+	}
+	args := make([]any, len(runIDs))
+	for i, id := range runIDs {
+		args[i] = id
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT o.run_id, r.option, r.origin, o.price_cents, o.currency, o.stops,
+		o.duration_min, o.airlines, o.route, o.flight_numbers, o.depart_time, o.arrive_time
+		FROM offers o JOIN runs r ON r.id = o.run_id
+		WHERE o.run_id IN (`+placeholders(len(runIDs))+`)
+		ORDER BY o.price_cents, o.id`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Offer
+	for rows.Next() {
+		var o Offer
+		var airlines, route, numbers string
+		if err := rows.Scan(&o.RunID, &o.Option, &o.Origin, &o.PriceCents, &o.Currency, &o.Stops, &o.DurationMin,
+			&airlines, &route, &numbers, &o.DepartTime, &o.ArriveTime); err != nil {
+			return nil, err
+		}
+		o.Airlines, o.Route, o.FlightNumbers = split(airlines), split(route), split(numbers)
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+func placeholders(n int) string { return strings.TrimSuffix(strings.Repeat("?,", n), ",") }
+
 // backupPrefix and backupLayout name the backup files:
 // flightprice-2027-05-10.db.
 const (

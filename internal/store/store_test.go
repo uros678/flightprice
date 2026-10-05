@@ -263,3 +263,45 @@ func TestBackup(t *testing.T) {
 		t.Error("an unrelated file was deleted")
 	}
 }
+
+func TestRunLogAndOffers(t *testing.T) {
+	s := open(t, filepath.Join(t.TempDir(), "flightprice.db"))
+	okID, err := s.SaveRun(ctx, success("A", "FRA", day(1, 7), 120000))
+	if err != nil {
+		t.Fatal(err)
+	}
+	failed := Run{Option: "B", Origin: "MUC", StartedAt: day(1, 8), Source: "manual", Request: request("MUC"),
+		Result: serpapi.Result{Status: serpapi.AuthError}, Err: &serpapi.Error{Status: serpapi.AuthError, Message: "bad key"}}
+	if _, err := s.SaveRun(ctx, failed); err != nil {
+		t.Fatal(err)
+	}
+
+	runs, err := s.RecentRuns(ctx, 10)
+	if err != nil || len(runs) != 2 {
+		t.Fatalf("runs = %+v, %v", runs, err)
+	}
+	if runs[0].Origin != "MUC" || runs[0].Status != "AUTH_ERROR" || runs[0].Error != "AUTH_ERROR: bad key" || runs[0].PriceCents != 0 {
+		t.Errorf("newest = %+v", runs[0])
+	}
+	if runs[1].ID != okID || runs[1].PriceCents != 120000 || runs[1].Source != "scheduled" {
+		t.Errorf("older = %+v", runs[1])
+	}
+
+	if n, err := s.CountRuns(ctx, day(1, 0), "scheduled", "probe"); err != nil || n != 1 {
+		t.Errorf("scheduled runs = %d, %v", n, err)
+	}
+	if n, err := s.CountRuns(ctx, day(1, 0), "manual"); err != nil || n != 1 {
+		t.Errorf("manual runs = %d, %v", n, err)
+	}
+
+	offers, err := s.Offers(ctx, []int64{okID})
+	if err != nil || len(offers) != 4 {
+		t.Fatalf("offers = %+v, %v", offers, err)
+	}
+	if offers[0].PriceCents != 115000 || offers[0].Stops != 2 || offers[0].Option != "A" || offers[0].Origin != "FRA" {
+		t.Errorf("cheapest offer = %+v", offers[0])
+	}
+	if got, _ := s.Offers(ctx, nil); got != nil {
+		t.Errorf("no runs: %+v", got)
+	}
+}

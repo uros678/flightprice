@@ -31,7 +31,7 @@ services:
     ports:
       - "${PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD", "/flightprice", "healthcheck"]
+      test: ["CMD", "/flightprice", "healthcheck", "-config", "/config.toml"]
       interval: 1m
       timeout: 5s
     secrets: [serpapi_key]

@@ -8,8 +8,9 @@ drops below your threshold, and shows everything on one web page.
 
 It only reads prices. It never books or reserves anything.
 
-> **Status:** early development. The design is done, the code is not written
-> yet, and the configuration format may still change.
+> **Status:** early development. Searching, storing and the web page work;
+> notifications are not written yet, and the configuration format may still
+> change.
 
 ## How it works
 
@@ -21,11 +22,17 @@ It only reads prices. It never books or reserves anything.
   option.
 - The price of a check is the cheapest offer within your limits for stops
   and travel time, as the total for all passengers.
-- An alert is sent when that price is below `total_below` and at least
-  `min_improvement` below the last alerted price, so the same price level is
-  never reported twice.
+- An option is not searched before its return date is within
+  `max_days_ahead` days (Google has nothing further out, and empty searches
+  still count). Once in that window it is checked once a day until fares
+  appear.
+- Planned: an alert when that price is below `total_below` and at least
+  `min_improvement` below the last alerted price.
 - The web page shows the best price per date option, a table per airport,
-  the price history chart, the run log and a "Search now" button.
+  the price history chart, the latest offers, the run log and a "Search now"
+  button. It is plain HTML with an SVG chart, no JavaScript.
+- A copy of the database is written to `data/backup/` once a week (last 8
+  kept).
 
 ## Configuration
 
@@ -38,11 +45,12 @@ or, with Docker secrets, as a file named by `SERPAPI_KEY_FILE`.
 ## Commands
 
 ```sh
-flightprice check-config -config config.toml        # check the file, no searches
-flightprice search -origin FRA -option A            # one live search (uses 1 SerpApi search)
+flightprice serve -config config.toml -data data   # scheduler + web page (the default)
+flightprice plan  -config config.toml -data data   # what the next run would search, no searches
+flightprice run   -config config.toml -data data   # today's planned searches once, now
+flightprice search -origin FRA -option A           # one live search, printed, not stored (1 search)
+flightprice check-config -config config.toml       # check the file, no searches
 ```
-
-`serve` (the scheduler and the web page) is not written yet.
 
 ## Run with Docker Compose
 
