@@ -19,6 +19,7 @@ import (
 const fresh = 7 * 24 * time.Hour
 
 type pageData struct {
+	Version     string
 	Passengers  string
 	Route       string
 	Constraints string
@@ -102,6 +103,7 @@ func (s *Server) page(ctx context.Context, msg string) (*pageData, error) {
 		return nil, err
 	}
 	d := &pageData{
+		Version:     s.Version,
 		Passengers:  passengers(cfg.Passengers),
 		Route:       strings.Join(cfg.Route.Origins, ", ") + " → " + strings.Join(cfg.Route.Destination, ", "),
 		Constraints: constraints(cfg.Constraints),

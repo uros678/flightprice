@@ -5,6 +5,10 @@
 #   printf '%s' 'YOUR_SERPAPI_KEY' > secrets/serpapi_key && chmod 600 secrets/serpapi_key
 #   docker compose up -d
 #
+# Update: "docker compose pull && docker compose up -d". The database in
+# ./data is kept; a newer version upgrades it after copying it to
+# ./data/backup/flightprice-schema-N.db (to go back, restore that copy).
+#
 # Optional settings in a .env file next to this one:
 #
 #   PORT  host port for the web page (default 8080)
@@ -15,6 +19,8 @@ name: flightprice
 
 services:
   flightprice:
+    # "latest" is the newest release; pin a version (e.g. 0.1) to update
+    # only when you choose. The data stays in ./data either way.
     image: ghcr.io/uros678/flightprice:latest
     restart: unless-stopped
     user: "${UID:-1000}:${GID:-1000}"
@@ -30,10 +36,6 @@ services:
       - ./config.toml:/config.toml:ro
     ports:
       - "${PORT:-8080}:8080"
-    healthcheck:
-      test: ["CMD", "/flightprice", "healthcheck", "-config", "/config.toml"]
-      interval: 1m
-      timeout: 5s
     secrets: [serpapi_key]
 
 secrets:

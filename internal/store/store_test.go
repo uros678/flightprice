@@ -305,3 +305,30 @@ func TestRunLogAndOffers(t *testing.T) {
 		t.Errorf("no runs: %+v", got)
 	}
 }
+
+func TestCopyBeforeUpgrade(t *testing.T) {
+	dir := t.TempDir()
+	s := open(t, filepath.Join(dir, "flightprice.db"))
+	if _, err := s.SaveRun(ctx, success("A", "FRA", day(1, 7), 120000)); err != nil {
+		t.Fatal(err)
+	}
+	path, err := s.copyBeforeUpgrade(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != filepath.Join(dir, "backup", "flightprice-schema-1.db") {
+		t.Errorf("path = %s", path)
+	}
+	c, err := Open(ctx, path, limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	if obs, err := c.Observations(ctx, "", "", time.Time{}); err != nil || len(obs) != 1 {
+		t.Errorf("copy: %+v, %v", obs, err)
+	}
+	// Not a weekly backup: never pruned.
+	if files, _ := backups(filepath.Join(dir, "backup")); len(files) != 0 {
+		t.Errorf("listed as weekly backups: %v", files)
+	}
+}

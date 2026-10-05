@@ -70,12 +70,34 @@ capabilities.
 The page has no login. Keep it on your LAN or VPN, or put an authenticating
 proxy in front of it.
 
+## Updates and your data
+
+The image holds only the program; the database is in `./data`. To update:
+
+```sh
+docker compose pull && docker compose up -d
+```
+
+All price history stays. When a new version changes the database layout,
+it first copies the database to `data/backup/flightprice-schema-N.db` and
+then upgrades it. An older version refuses to open a newer database rather
+than damage it: to go back, stop the container, restore that copy as
+`data/flightprice.db` and start the older image. A weekly copy of the
+database is kept in `data/backup/` as well (the last 8).
+
+Images are tagged with the full version (`0.1.0`), the minor version
+(`0.1`) and `latest`; pin one in `compose.yml` to update only when you
+choose.
+
 ## Build
 
 ```sh
 CGO_ENABLED=0 go build -o flightprice ./cmd/flightprice
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o flightprice-linux-amd64 ./cmd/flightprice
 docker build -t flightprice .
 ```
+
+Releases are built by GitHub Actions from a `v*` tag.
 
 ## License
 

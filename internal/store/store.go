@@ -40,7 +40,8 @@ type Limits struct {
 
 // Store is an open database.
 type Store struct {
-	db *sql.DB
+	db   *sql.DB
+	path string
 }
 
 // Open opens (or creates) the database at path, brings its schema up to date
@@ -54,7 +55,7 @@ func Open(ctx context.Context, path string, limits Limits) (*Store, error) {
 	// One connection: the app writes a few rows a day, and a single
 	// connection keeps the pragmas and avoids SQLITE_BUSY between them.
 	db.SetMaxOpenConns(1)
-	s := &Store{db: db}
+	s := &Store{db: db, path: path}
 	if err := s.migrate(ctx); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("%s: %w", path, err)
@@ -79,6 +80,14 @@ func (s *Store) migrate(ctx context.Context) error {
 		return nil
 	case version > schemaVersion:
 		return fmt.Errorf("database schema %d is newer than this program (%d)", version, schemaVersion)
+	}
+	// An existing database is about to change for a newer program: keep a
+	// copy of it as it was, so going back to the older version stays
+	// possible (the older program refuses the newer schema).
+	if version > 0 {
+		if _, err := s.copyBeforeUpgrade(ctx, version); err != nil {
+			return err
+		}
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -194,6 +203,24 @@ func (s *Store) SaveRun(ctx context.Context, r Run) (int64, error) {
 		}
 	}
 	return id, tx.Commit()
+}
+
+// copyBeforeUpgrade writes backup/flightprice-schema-<from>.db next to the
+// database. These copies are not pruned like the weekly backups.
+func (s *Store) copyBeforeUpgrade(ctx context.Context, from int) (string, error) {
+	dir := filepath.Join(filepath.Dir(s.path), "backup")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, fmt.Sprintf("flightprice-schema-%d.db", from))
+	if _, err := os.Stat(path); err == nil {
+		return path, nil // an earlier, interrupted upgrade already kept it
+	}
+	if _, err := s.db.ExecContext(ctx, "VACUUM INTO ?", path); err != nil {
+		os.Remove(path)
+		return "", fmt.Errorf("copy before the schema upgrade: %w", err)
+	}
+	return path, nil
 }
 
 // CallsSince is the number of searches since t that SerpApi answered, i.e.

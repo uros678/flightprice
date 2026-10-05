@@ -1,0 +1,88 @@
+# Release: on a pushed tag v*, vet and test on Linux (amd64, arm64), build
+# the static binaries, push the Docker image to ghcr.io/uros678/flightprice
+# and create a GitHub Release with the binaries, SHA256SUMS and the tag
+# message as notes. Image tags for v0.1.0: 0.1.0, 0.1 and latest; a
+# pre-release tag like v0.1.0-rc1 gets only 0.1.0-rc1 and a GitHub
+# pre-release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      # The Dockerfile copies the Linux binaries (no Go inside Docker, so no
+      # emulation for arm64). The version is the tag.
+      - run: |
+          for arch in amd64 arm64; do
+            GOOS=linux GOARCH=$arch go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+              -o "flightprice-linux-$arch" ./cmd/flightprice
+          done
+          sha256sum flightprice-linux-amd64 flightprice-linux-arm64 > SHA256SUMS
+        env:
+          CGO_ENABLED: '0'
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          # No build attestation: it shows on GHCR as extra "untagged"
+          # versions that must not be deleted.
+          provenance: false
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      # After the image, so a release on GitHub always has its image.
+      - run: |
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          {
+            git tag -l --format='%(contents)' "$GITHUB_REF_NAME"
+            echo
+            echo "Docker image: \`ghcr.io/$GITHUB_REPOSITORY:${GITHUB_REF_NAME#v}\` (linux/amd64, linux/arm64)."
+          } > notes.md
+          pre=
+          case "$GITHUB_REF_NAME" in *-*) pre=--prerelease ;; esac
+          gh release create "$GITHUB_REF_NAME" --verify-tag $pre --title "$GITHUB_REF_NAME" --notes-file notes.md \
+            flightprice-linux-amd64 flightprice-linux-arm64 SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}

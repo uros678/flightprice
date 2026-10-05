@@ -33,6 +33,8 @@ type accountReader interface {
 
 // Server holds everything the scheduler and the page need.
 type Server struct {
+	Version string // shown on the page
+
 	cfg     *config.Config
 	store   *store.Store
 	search  Searcher

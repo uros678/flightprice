@@ -6,6 +6,7 @@
 //	flightprice search -origin FRA -option A         one live search, printed, not stored
 //	flightprice check-config [-config path]
 //	flightprice healthcheck [-config path]           for the container's HEALTHCHECK
+//	flightprice version
 package main
 
 import (
@@ -31,6 +32,9 @@ import (
 	"github.com/uros678/flightprice/internal/web"
 )
 
+// version is set at build time (-ldflags "-X main.version=v0.1.0").
+var version = "dev"
+
 func main() {
 	cmd, args := "serve", os.Args[1:]
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
@@ -39,10 +43,11 @@ func main() {
 	commands := map[string]func([]string) error{
 		"serve": serve, "run": runOnce, "plan": showPlan, "search": search,
 		"check-config": checkConfig, "healthcheck": healthcheck,
+		"version": func([]string) error { fmt.Println("flightprice", version); return nil },
 	}
 	f, ok := commands[cmd]
 	if !ok {
-		fmt.Fprintf(os.Stderr, "flightprice: unknown command %q (serve, run, plan, search, check-config, healthcheck)\n", cmd)
+		fmt.Fprintf(os.Stderr, "flightprice: unknown command %q (serve, run, plan, search, check-config, healthcheck, version)\n", cmd)
 		os.Exit(2)
 	}
 	if err := f(args); err != nil {
@@ -87,6 +92,7 @@ func open(ctx context.Context, f flags, needKey bool) (*config.Config, *store.St
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	srv := web.New(ctx, cfg, st, &serpapi.Client{Key: key}, *f.data, log)
+	srv.Version = version
 	return cfg, st, srv, nil
 }
 
@@ -106,7 +112,7 @@ func serve(args []string) error {
 	errc := make(chan error, 1)
 	go func() { errc <- httpSrv.ListenAndServe() }()
 	go srv.Schedule(ctx)
-	slog.Info("flightprice started", "listen", cfg.Web.Listen, "data", *f.data)
+	slog.Info("flightprice started", "version", version, "listen", cfg.Web.Listen, "data", *f.data)
 
 	select {
 	case err := <-errc:

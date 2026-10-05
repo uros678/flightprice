@@ -154,7 +154,7 @@ details summary { cursor: pointer; color: var(--muted); }
 </section>
 
 <p class="muted small">Prices are round-trip totals for all passengers, from SerpApi (Google Flights).
-  Price history as <a href="/data.json">JSON</a>.</p>
+  Price history as <a href="/data.json">JSON</a>.{{with .Version}} flightprice {{.}}.{{end}}</p>
 </main>
 </body>
 </html>

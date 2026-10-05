@@ -1,10 +1,3 @@
-.git
-config.toml
-secrets/
-data/
-*.db
-*.db-wal
-*.db-shm
-.env
-CLAUDE.md
-CLAUDE.local.md
+# The image only needs the binary.
+*
+!flightprice-linux-*
