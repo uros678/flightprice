@@ -1,0 +1,14 @@
+# Local configuration and secrets, never committed
+config.toml
+secrets/
+.env
+
+# Runtime data
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Build output
+/flightprice
+/flightprice-linux-*

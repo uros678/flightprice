@@ -1,0 +1,41 @@
+# flightprice with docker compose:
+#
+#   cp config.example.toml config.toml        # then edit it
+#   mkdir -p data secrets
+#   printf '%s' 'YOUR_SERPAPI_KEY' > secrets/serpapi_key && chmod 600 secrets/serpapi_key
+#   docker compose up -d
+#
+# Optional settings in a .env file next to this one:
+#
+#   PORT  host port for the web page (default 8080)
+#   UID   user the app runs as (default 1000); it must be able to write ./data
+#   GID   its group (default 1000)
+#   TZ    time zone for the log (default UTC; the schedule has its own in config.toml)
+name: flightprice
+
+services:
+  flightprice:
+    image: ghcr.io/uros678/flightprice:latest
+    restart: unless-stopped
+    user: "${UID:-1000}:${GID:-1000}"
+    # Only /data is writable: the database and its weekly backups.
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    environment:
+      TZ: ${TZ:-UTC}
+      SERPAPI_KEY_FILE: /run/secrets/serpapi_key
+    volumes:
+      - ./data:/data
+      - ./config.toml:/config.toml:ro
+    ports:
+      - "${PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "/flightprice", "healthcheck"]
+      interval: 1m
+      timeout: 5s
+    secrets: [serpapi_key]
+
+secrets:
+  serpapi_key:
+    file: ./secrets/serpapi_key

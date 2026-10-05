@@ -1,0 +1,10 @@
+.git
+config.toml
+secrets/
+data/
+*.db
+*.db-wal
+*.db-shm
+.env
+CLAUDE.md
+CLAUDE.local.md
