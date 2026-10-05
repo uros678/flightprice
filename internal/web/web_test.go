@@ -315,11 +315,26 @@ func TestPage(t *testing.T) {
 			t.Errorf("page does not contain %q", want)
 		}
 	}
-	if strings.Contains(body, "Long Air") && !strings.Contains(body, `class="out"`) {
-		t.Error("the 3-stop offer is not marked as outside the limits")
+	if strings.Contains(body, "Long Air") {
+		t.Error("the 3-stop offer outside the limits is listed")
+	}
+	if !strings.Contains(body, "more outside them are not shown") {
+		t.Error("the hidden offers are not counted")
 	}
 	if rec.Header().Get("Content-Security-Policy") == "" {
 		t.Error("no CSP header")
+	}
+	if strings.Contains(body, `http-equiv="refresh"`) {
+		t.Error("the page refreshes itself with no search running")
+	}
+
+	// While a search runs, the page refreshes itself to "/", without the message.
+	ts.mu.Lock()
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/?msg=hello", nil))
+	ts.mu.Unlock()
+	if !strings.Contains(rec.Body.String(), `<meta http-equiv="refresh" content="10; url=/">`) {
+		t.Error("the page does not refresh itself while a search runs")
 	}
 
 	rec = httptest.NewRecorder()

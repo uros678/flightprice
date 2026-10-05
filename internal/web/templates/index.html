@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>flightprice</title>
+{{if .Busy}}<meta http-equiv="refresh" content="10; url=/">{{end}}
 <style>
 :root {
   --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #677084; --line: #e1e4ea;
@@ -37,7 +38,6 @@ th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line
 th { font-weight: 600; font-size: 13px; color: var(--muted); }
 td.num, th.num { text-align: right; }
 tr.best td { background: var(--mark); }
-tr.out td { color: var(--muted); }
 td.bad { color: var(--bad); }
 .scroll { overflow-x: auto; }
 .chart { width: 100%; height: auto; display: block; margin-top: 12px; }
@@ -110,15 +110,15 @@ details summary { cursor: pointer; color: var(--muted); }
   <table>
     <tr><th class="num">Total</th><th>From</th><th>Stops</th><th>Time</th><th>Route</th><th>Airlines</th><th>Departs</th></tr>
     {{range .Offers}}
-    <tr{{if not .OK}} class="out"{{end}}>
+    <tr>
       <td class="num"><strong>{{.Price}}</strong></td><td>{{.Origin}}</td><td>{{.Stops}}</td><td>{{.Duration}}</td>
       <td>{{.Route}}</td><td>{{.Airlines}} <span class="muted small">{{.Flights}}</span></td><td class="small">{{.Depart}}</td>
     </tr>
     {{end}}
   </table>
   </div>
-  <p class="muted small">Grey rows are outside the limits ({{$.Constraints}}) and are not tracked.
-    Flight details are the outbound; Google applies the limits to the return flight too. The return
+  <p class="muted small">Only offers within the limits ({{$.Constraints}}) are listed{{with .Hidden}};
+    {{.}} more outside them are not shown or tracked{{end}}. Flight details are the outbound; Google applies the limits to the return flight too. The return
     flights of an airport are on Google Flights (↗ links in the airport table).</p>
 </section>
 {{end}}{{end}}

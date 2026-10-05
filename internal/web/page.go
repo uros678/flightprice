@@ -46,6 +46,7 @@ type optionView struct {
 	Lowest *priceView // lowest ever
 	Chart  template.HTML
 	Offers []offerView
+	Hidden int // offers of the latest searches outside the limits
 }
 
 type priceView struct {
@@ -91,7 +92,6 @@ type runView struct {
 
 type offerView struct {
 	Price, Origin, Stops, Duration, Route, Airlines, Flights, Depart string
-	OK                                                               bool
 }
 
 // page collects everything the report page shows.
@@ -191,14 +191,21 @@ func (s *Server) page(ctx context.Context, msg string) (*pageData, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Only offers within the limits are listed; the rest are counted.
 		maxMin := cfg.Constraints.MaxDurationMin()
-		for _, o := range offers[:min(len(offers), 12)] {
+		for _, o := range offers {
+			if o.Stops > cfg.Constraints.MaxStops || (maxMin > 0 && o.DurationMin > maxMin) {
+				v.Hidden++
+				continue
+			}
+			if len(v.Offers) == 12 {
+				continue
+			}
 			v.Offers = append(v.Offers, offerView{
 				Price: money(o.PriceCents, o.Currency), Origin: o.Origin, Stops: stops(o.Stops),
 				Duration: duration(o.DurationMin), Route: strings.Join(o.Route, " › "),
 				Airlines: strings.Join(o.Airlines, ", "), Flights: strings.Join(o.FlightNumbers, ", "),
 				Depart: o.DepartTime,
-				OK:     o.Stops <= cfg.Constraints.MaxStops && (maxMin == 0 || o.DurationMin <= maxMin),
 			})
 		}
 		d.Options = append(d.Options, v)

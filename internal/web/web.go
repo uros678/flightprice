@@ -122,7 +122,7 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	origin := strings.ToUpper(r.FormValue("origin"))
-	msg := "Search started for " + origin + ". Reload the page in a minute."
+	msg := "Search started for " + origin + ". This page refreshes by itself until it is done."
 	if err := s.Manual(origin); err != nil {
 		msg = "Not started: " + err.Error() + "."
 	}
