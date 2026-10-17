@@ -100,6 +100,32 @@ func TestDateAsString(t *testing.T) {
 	}
 }
 
+func TestAccepts(t *testing.T) {
+	cfg, err := Parse(minimal + "\n[constraints]\nmax_duration_h = 14\nexclude_connections = [\"doh\"]\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := cfg.Constraints
+	if !slices.Equal(c.ExcludeConnections, []string{"DOH"}) {
+		t.Errorf("not upper-cased: %v", c.ExcludeConnections)
+	}
+	for _, tc := range []struct {
+		stops, minutes int
+		route          []string
+		want           bool
+	}{
+		{0, 600, []string{"FRA", "JFK"}, true},
+		{1, 800, []string{"FRA", "IST", "JFK"}, true},
+		{2, 800, []string{"FRA", "IST", "LHR", "JFK"}, false},
+		{1, 900, []string{"FRA", "IST", "JFK"}, false},
+		{1, 800, []string{"FRA", "DOH", "JFK"}, false},
+	} {
+		if got := c.Accepts(tc.stops, tc.minutes, tc.route); got != tc.want {
+			t.Errorf("%d stops, %d min, %v: got %v", tc.stops, tc.minutes, tc.route, got)
+		}
+	}
+}
+
 func TestErrors(t *testing.T) {
 	for _, tc := range []struct {
 		name, change, want string
@@ -112,6 +138,9 @@ func TestErrors(t *testing.T) {
 		{"cabin", "\n[route]\norigins = [\"FRA\"]\ndestination = [\"JFK\"]\ncabin = \"sofa\"\n", "route.cabin"},
 		{"market", "\n[route]\norigins = [\"FRA\"]\ndestination = [\"JFK\"]\nmarket = \"AT\"\n", "route.market"},
 		{"stops", "\n[constraints]\nmax_stops = 5\n", "constraints.max_stops"},
+		{"exclude code", "\n[constraints]\nexclude_connections = [\"DOHA\"]\n", `exclude_connections: "DOHA" is not`},
+		{"exclude twice", "\n[constraints]\nexclude_connections = [\"DOH\", \"doh\"]\n", "DOH is listed twice"},
+		{"exclude origin", "\n[constraints]\nexclude_connections = [\"FRA\"]\n", "FRA is also an origin"},
 		{"return first", "\n[[option]]\nname = \"B\"\ndepart = 2027-05-10\nreturn = 2027-05-01\n", `option "B": return 2027-05-01 is not after depart 2027-05-10`},
 		{"home_by", "\n[[option]]\nname = \"B\"\ndepart = 2027-05-10\nreturn = 2027-05-20\nhome_by = 2027-05-19\n", "home_by 2027-05-19 is before return"},
 		{"same name", "\n[[option]]\nname = \"A\"\ndepart = 2027-06-10\nreturn = 2027-06-20\n", `name "A" is used twice`},

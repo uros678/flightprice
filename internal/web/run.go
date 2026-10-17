@@ -365,6 +365,7 @@ func NewRequest(cfg *config.Config, origin string, o config.Option) serpapi.Requ
 		// checks the outbound again.
 		MaxStops:       &maxStops,
 		MaxDurationMin: cfg.Constraints.MaxDurationMin(),
+		ExcludeConns:   cfg.Constraints.ExcludeConnections,
 	}
 }
 

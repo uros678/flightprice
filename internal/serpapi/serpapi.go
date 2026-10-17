@@ -57,6 +57,9 @@ type Request struct {
 	// details (outbound only) cannot show. nil and 0 mean no limit.
 	MaxStops       *int `json:"max_stops,omitempty"`
 	MaxDurationMin int  `json:"max_duration_min,omitempty"`
+	// ExcludeConns are airports Google must not connect through (both
+	// directions).
+	ExcludeConns []string `json:"exclude_conns,omitempty"`
 }
 
 var travelClass = map[string]int{"economy": 1, "premium_economy": 2, "business": 3, "first": 4}
@@ -88,6 +91,9 @@ func (r Request) query(key string) (url.Values, error) {
 	}
 	if r.MaxDurationMin > 0 {
 		q.Set("max_duration", strconv.Itoa(r.MaxDurationMin))
+	}
+	if len(r.ExcludeConns) > 0 {
+		q.Set("exclude_conns", strings.Join(r.ExcludeConns, ","))
 	}
 	q.Set("currency", r.Currency)
 	q.Set("hl", "en")

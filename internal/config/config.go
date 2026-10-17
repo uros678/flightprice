@@ -62,11 +62,28 @@ type Constraints struct {
 	MaxStops int `toml:"max_stops"`
 	// MaxDurationH limits the outbound travel time; 0 means no limit.
 	MaxDurationH int `toml:"max_duration_h"`
+	// ExcludeConnections are airports an itinerary must not connect through,
+	// in either direction.
+	ExcludeConnections []string `toml:"exclude_connections"`
 }
 
 // MaxDurationMin is the travel time limit in minutes (SerpApi's unit), 0 for
 // no limit.
 func (c Constraints) MaxDurationMin() int { return c.MaxDurationH * 60 }
+
+// Accepts tells whether an offer is within the limits. route is its airports
+// in order, origin first; only the ones in between are connections.
+func (c Constraints) Accepts(stops, durationMin int, route []string) bool {
+	if stops > c.MaxStops || (c.MaxDurationH > 0 && durationMin > c.MaxDurationMin()) {
+		return false
+	}
+	for i := 1; i < len(route)-1; i++ {
+		if slices.Contains(c.ExcludeConnections, route[i]) {
+			return false
+		}
+	}
+	return true
+}
 
 // Option is one fixed date combination.
 type Option struct {
@@ -220,6 +237,17 @@ func (c *Config) check() error {
 	}
 	if c.Constraints.MaxDurationH < 0 {
 		bad("constraints.max_duration_h must not be negative (0 = no limit)")
+	}
+	c.Constraints.ExcludeConnections = upper(c.Constraints.ExcludeConnections)
+	for i, code := range c.Constraints.ExcludeConnections {
+		switch {
+		case !iataCode.MatchString(code):
+			bad("constraints.exclude_connections: %q is not a 3-letter airport code", code)
+		case slices.Index(c.Constraints.ExcludeConnections, code) != i:
+			bad("constraints.exclude_connections: %s is listed twice", code)
+		case slices.Contains(c.Route.Origins, code) || slices.Contains(c.Route.Destination, code):
+			bad("constraints.exclude_connections: %s is also an origin or destination", code)
+		}
 	}
 
 	if len(c.Options) == 0 {

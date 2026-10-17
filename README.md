@@ -20,8 +20,9 @@ It only reads prices. It never books or reserves anything.
   over the days left in the quota cycle and checks the airports that have
   gone longest without a check. One airport check is one search per date
   option.
-- The price of a check is the cheapest offer within your limits for stops
-  and travel time, as the total for all passengers.
+- The price of a check is the cheapest offer within your limits for stops,
+  travel time and excluded connecting airports, as the total for all
+  passengers.
 - An option is not searched before its return date is within
   `max_days_ahead` days (Google has nothing further out, and empty searches
   still count). Once in that window it is checked once a day until fares

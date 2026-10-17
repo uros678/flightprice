@@ -122,6 +122,40 @@ func TestLimitsChangeTheView(t *testing.T) {
 	}
 }
 
+func TestExcludedConnections(t *testing.T) {
+	s := open(t, filepath.Join(t.TempDir(), "flightprice.db"))
+	via := func(price int64, hub string) serpapi.Offer {
+		o := offer(price, 1, 700, "Hub Air")
+		o.Route = []string{"FRA", hub, "JFK"}
+		return o
+	}
+	r := success("A", "FRA", day(1, 7), 120000)
+	r.Result.Offers = []serpapi.Offer{via(100000, "DOH"), via(105000, "DXB"), via(110000, "IST")}
+	if _, err := s.SaveRun(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		exclude []string
+		want    int64
+	}{
+		{nil, 100000},
+		{[]string{"DOH"}, 105000},
+		{[]string{"DOH", "DXB"}, 110000},
+		{[]string{"OHA"}, 100000}, // whole codes only
+	} {
+		if err := s.SetLimits(ctx, Limits{MaxStops: 1, ExcludeConns: tc.exclude}); err != nil {
+			t.Fatal(err)
+		}
+		obs, err := s.Observations(ctx, "", "", time.Time{})
+		if err != nil || len(obs) != 1 || obs[0].PriceCents != tc.want {
+			t.Errorf("%v: got %+v, %v; want %d", tc.exclude, obs, err, tc.want)
+		}
+	}
+	if err := s.SetLimits(ctx, Limits{MaxStops: 1, ExcludeConns: []string{"x'); --"}}); err == nil {
+		t.Error("bad airport code accepted")
+	}
+}
+
 func TestFailedRuns(t *testing.T) {
 	s := open(t, filepath.Join(t.TempDir(), "flightprice.db"))
 	runs := []Run{

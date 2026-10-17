@@ -86,6 +86,7 @@ func open(ctx context.Context, f flags, needKey bool) (*config.Config, *store.St
 	}
 	st, err := store.Open(ctx, filepath.Join(*f.data, "flightprice.db"), store.Limits{
 		MaxStops: cfg.Constraints.MaxStops, MaxDurationMin: cfg.Constraints.MaxDurationMin(),
+		ExcludeConns: cfg.Constraints.ExcludeConnections,
 	})
 	if err != nil {
 		return nil, nil, nil, err
@@ -255,18 +256,17 @@ func search(args []string) error {
 	if in := res.Insights; in != nil {
 		fmt.Printf("Google: %s, typical %s-%s\n", in.Level, money(in.TypicalLowCents), money(in.TypicalHighCents))
 	}
-	maxStops, maxMin := cfg.Constraints.MaxStops, cfg.Constraints.MaxDurationMin()
 	slices.SortStableFunc(res.Offers, func(a, b serpapi.Offer) int { return cmp.Compare(a.PriceCents, b.PriceCents) })
 	for _, o := range res.Offers {
 		mark := " "
-		if o.Stops <= maxStops && (maxMin == 0 || o.DurationMin <= maxMin) {
+		if cfg.Constraints.Accepts(o.Stops, o.DurationMin, o.Route) {
 			mark = "*"
 		}
 		fmt.Printf("%s %10s  %d stop  %2dh%02d  %-20s %s\n", mark, money(o.PriceCents), o.Stops,
 			o.DurationMin/60, o.DurationMin%60, strings.Join(o.Route, ">"), strings.Join(o.Airlines, ", "))
 	}
 	if len(res.Offers) > 0 {
-		fmt.Println("* = within constraints (max_stops, max_duration_h)")
+		fmt.Println("* = within constraints (max_stops, max_duration_h, exclude_connections)")
 	}
 	return nil
 }

@@ -125,8 +125,8 @@ func TestSearchSendsQuery(t *testing.T) {
 				t.Errorf("%s = %q, want %q", k, got, v)
 			}
 		}
-		if q.Has("children") || q.Has("stops") || q.Has("max_duration") {
-			t.Errorf("children, stops or max_duration sent although not set: %v", q)
+		if q.Has("children") || q.Has("stops") || q.Has("max_duration") || q.Has("exclude_conns") {
+			t.Errorf("children, stops, max_duration or exclude_conns sent although not set: %v", q)
 		}
 		w.Write(body)
 	}))
@@ -310,6 +310,19 @@ func TestSearchLimits(t *testing.T) {
 		(&Client{Key: testKey, Endpoint: srv.URL}).Search(context.Background(), req)
 		srv.Close()
 	}
+}
+
+func TestSearchExcludeConns(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("exclude_conns"); got != "DOH,DXB" {
+			t.Errorf("exclude_conns = %q", got)
+		}
+		w.Write(fixture(t, "search_empty.json"))
+	}))
+	defer srv.Close()
+	req := testRequest()
+	req.ExcludeConns = []string{"DOH", "DXB"}
+	(&Client{Key: testKey, Endpoint: srv.URL}).Search(context.Background(), req)
 }
 
 func ptr(n int) *int { return &n }

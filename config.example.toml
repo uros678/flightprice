@@ -16,6 +16,7 @@ market = "de"                     # Google's country (gl); prices can differ by 
 [constraints]           # what counts as an acceptable itinerary
 max_stops = 1
 max_duration_h = 14     # outbound travel time; 0 = no limit
+exclude_connections = []  # airports never to connect through, either way, e.g. ["LHR", "CDG"]
 
 # One [[option]] per fixed date combination to track.
 [[option]]

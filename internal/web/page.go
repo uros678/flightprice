@@ -192,9 +192,8 @@ func (s *Server) page(ctx context.Context, msg string) (*pageData, error) {
 			return nil, err
 		}
 		// Only offers within the limits are listed; the rest are counted.
-		maxMin := cfg.Constraints.MaxDurationMin()
 		for _, o := range offers {
-			if o.Stops > cfg.Constraints.MaxStops || (maxMin > 0 && o.DurationMin > maxMin) {
+			if !cfg.Constraints.Accepts(o.Stops, o.DurationMin, o.Route) {
 				v.Hidden++
 				continue
 			}
@@ -322,6 +321,9 @@ func constraints(c config.Constraints) string {
 	}
 	if c.MaxDurationH > 0 {
 		s += fmt.Sprintf(", max %d h outbound", c.MaxDurationH)
+	}
+	if len(c.ExcludeConnections) > 0 {
+		s += ", not via " + strings.Join(c.ExcludeConnections, ", ")
 	}
 	return s
 }

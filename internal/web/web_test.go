@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -85,6 +86,7 @@ destination = ["JFK"]
 [constraints]
 max_stops = 1
 max_duration_h = 14
+exclude_connections = ["DOH"]
 [[option]]
 name = "A"
 depart = 2027-05-10
@@ -486,6 +488,9 @@ func TestRequestCarriesLimits(t *testing.T) {
 	req := ts.fake.calls[0]
 	if req.MaxStops == nil || *req.MaxStops != 1 || req.MaxDurationMin != 14*60 {
 		t.Errorf("limits not sent: stops %v, duration %d", req.MaxStops, req.MaxDurationMin)
+	}
+	if !slices.Equal(req.ExcludeConns, []string{"DOH"}) {
+		t.Errorf("exclude_conns not sent: %v", req.ExcludeConns)
 	}
 }
 

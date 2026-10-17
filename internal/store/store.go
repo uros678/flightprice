@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -28,6 +29,8 @@ var schema string
 // user_version. A later change adds a migration step in migrate.
 const schemaVersion = 1
 
+var iata = regexp.MustCompile(`^[A-Z]{3}$`)
+
 // timeLayout is how times are stored: UTC, sortable as text.
 const timeLayout = time.RFC3339
 
@@ -36,6 +39,9 @@ const timeLayout = time.RFC3339
 type Limits struct {
 	MaxStops       int
 	MaxDurationMin int // 0 = no limit
+	// ExcludeConns are airports the outbound must not connect through
+	// (3-letter codes; the config checks them).
+	ExcludeConns []string
 }
 
 // Store is an open database.
@@ -115,6 +121,14 @@ func (s *Store) SetLimits(ctx context.Context, l Limits) error {
 	where := fmt.Sprintf("o.stops <= %d", l.MaxStops)
 	if l.MaxDurationMin > 0 {
 		where += fmt.Sprintf(" AND o.duration_min <= %d", l.MaxDurationMin)
+	}
+	// The config never lets an origin or destination be excluded, so a
+	// match anywhere in the route is a connection.
+	for _, code := range l.ExcludeConns {
+		if !iata.MatchString(code) {
+			return fmt.Errorf("bad airport code %q", code)
+		}
+		where += fmt.Sprintf(" AND instr(',' || o.route || ',', ',%s,') = 0", code)
 	}
 	view := `CREATE VIEW observations AS
 SELECT r.id AS run_id, r.option, r.origin, r.started_at, r.price_level,
