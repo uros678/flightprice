@@ -42,8 +42,21 @@ td.bad { color: var(--bad); }
 .scroll { overflow-x: auto; }
 .chart { width: 100%; height: auto; display: block; margin-top: 12px; }
 .chart .grid { stroke: var(--line); }
-.chart .axis { fill: var(--muted); font-size: 11px; }
+.chart .axis { fill: var(--muted); font-size: 17px; }
 .chart .threshold { stroke: var(--bad); stroke-dasharray: 5 4; }
+/* Click to enlarge without JavaScript: the clicked chart becomes the URL
+   target and turns into a full-window overlay; the backdrop links back. */
+.chart-open { display: block; cursor: zoom-in; }
+.chart-close { display: none; }
+.chart-box:target { position: fixed; inset: 0; z-index: 10; display: flex;
+                    align-items: center; justify-content: center; padding: 16px; }
+.chart-box:target .chart-close { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, .6);
+                                 color: #fff; font-size: 32px; line-height: 1; text-align: right;
+                                 padding: 12px 20px; text-decoration: none; }
+.chart-box:target .chart-open { position: relative; z-index: 1; width: min(100%, 1400px); cursor: default;
+                                background: var(--card); border-radius: 10px; padding: 16px; }
+.chart-box:target .chart { margin: 0; max-height: calc(100vh - 64px); }
+.chart-box:target .chart .axis { font-size: 11px; }
 form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 select, button { font: inherit; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line);
                  background: var(--card); color: var(--text); }
@@ -64,8 +77,8 @@ details summary { cursor: pointer; color: var(--muted); }
 {{with .Message}}<div class="msg">{{.}}</div>{{end}}
 
 <div class="cards">
-{{range .Options}}
-  <div class="card">
+{{range $i, $o := .Options}}
+  <div class="card" id="option-{{$i}}">
     <h2>Option {{.Name}}</h2>
     <div class="muted small">{{.Dates}}{{with .HomeBy}} · home by {{.}}{{end}} · {{.State}}</div>
     {{with .Best}}
@@ -79,7 +92,10 @@ details summary { cursor: pointer; color: var(--muted); }
       <p class="muted">No prices yet.</p>
     {{end}}
     {{with .Lowest}}<div class="small" style="margin-top:8px">Lowest so far: <strong>{{.Price}}</strong> from {{.Origin}}, {{.When}}</div>{{end}}
-    {{.Chart}}
+    {{with .Chart}}<div class="chart-box" id="chart-{{$i}}">
+      <a class="chart-open" href="#chart-{{$i}}" title="Click to enlarge">{{.}}</a>
+      <a class="chart-close" href="#option-{{$i}}" aria-label="Close">×</a>
+    </div>{{end}}
   </div>
 {{end}}
 </div>

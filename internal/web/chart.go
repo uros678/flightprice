@@ -17,7 +17,7 @@ var palette = []string{"#4e79a7", "#f28e2b", "#e15759", "#59a14f", "#b07aa1", "#
 // Chart geometry, in SVG units (the chart scales to the page width).
 const (
 	chartW, chartH                     = 760, 260
-	padLeft, padRight, padTop, padDown = 64, 16, 28, 30
+	padLeft, padRight, padTop, padDown = 76, 16, 28, 30
 )
 
 // priceChart draws the price history of one option: a line per origin, the
@@ -101,7 +101,7 @@ func priceChart(hist map[string][]store.Observation, origins []string, threshold
 				strings.Replace(pts[j], ",", `" cy="`, 1), color, origin, o.At.In(loc).Format("2 Jan 15:04"), money(o.PriceCents, o.Currency))
 		}
 		fmt.Fprintf(&b, `<rect x="%.0f" y="6" width="10" height="10" fill="%s"/><text class="axis" x="%.0f" y="15">%s</text>`, lx, color, lx+14, origin)
-		lx += 56
+		lx += 72
 	}
 	b.WriteString(`</svg>`)
 	return template.HTML(b.String())
