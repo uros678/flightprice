@@ -93,7 +93,7 @@ details summary { cursor: pointer; color: var(--muted); }
     {{end}}
     {{with .Lowest}}<div class="small" style="margin-top:8px">Lowest so far: <strong>{{.Price}}</strong> from {{.Origin}}, {{.When}}</div>{{end}}
     {{with .Chart}}<div class="chart-box" id="chart-{{$i}}">
-      <a class="chart-open" href="#chart-{{$i}}" title="Click to enlarge">{{.}}</a>
+      <a class="chart-open" href="#chart-{{$i}}" aria-label="Enlarge the price chart">{{.}}</a>
       <a class="chart-close" href="#option-{{$i}}" aria-label="Close">×</a>
     </div>{{end}}
   </div>

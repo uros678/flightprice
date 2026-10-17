@@ -78,11 +78,19 @@ func priceChart(hist map[string][]store.Observation, origins []string, threshold
 	if threshold > 0 && threshold >= lo && threshold <= hi {
 		yy := y(threshold)
 		fmt.Fprintf(&b, `<line class="threshold" x1="%d" x2="%d" y1="%.1f" y2="%.1f"/>`, padLeft, chartW-padRight, yy, yy)
-		fmt.Fprintf(&b, `<text class="axis" x="%d" y="%.1f" text-anchor="end">alert</text>`, chartW-padRight, yy-4)
+		fmt.Fprintf(&b, `<text class="axis" x="%d" y="%.1f">alert</text>`, padLeft+4, yy-4)
 	}
 
-	// One line per origin, with a dot per price; a legend on top.
-	lx := float64(padLeft)
+	// One line per origin, with a dot per price; a legend on top, right
+	// aligned (an entry is a swatch and a 3-letter code, legendW wide).
+	const legendStep, legendW = 72, 38
+	shown := 0
+	for _, origin := range origins {
+		if len(hist[origin]) > 0 {
+			shown++
+		}
+	}
+	lx := float64(chartW - padRight - legendW - (shown-1)*legendStep)
 	for i, origin := range origins {
 		h := hist[origin]
 		color := palette[i%len(palette)]
@@ -101,7 +109,7 @@ func priceChart(hist map[string][]store.Observation, origins []string, threshold
 				strings.Replace(pts[j], ",", `" cy="`, 1), color, origin, o.At.In(loc).Format("2 Jan 15:04"), money(o.PriceCents, o.Currency))
 		}
 		fmt.Fprintf(&b, `<rect x="%.0f" y="6" width="10" height="10" fill="%s"/><text class="axis" x="%.0f" y="15">%s</text>`, lx, color, lx+14, origin)
-		lx += 72
+		lx += legendStep
 	}
 	b.WriteString(`</svg>`)
 	return template.HTML(b.String())
