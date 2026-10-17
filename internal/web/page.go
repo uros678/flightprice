@@ -24,8 +24,6 @@ type pageData struct {
 	Passengers  string
 	Route       string
 	Constraints string
-	Limits      string
-	NotVia      string
 	Now         string
 	Message     string
 	Busy        bool
@@ -112,8 +110,6 @@ func (s *Server) page(ctx context.Context, msg string) (*pageData, error) {
 		Passengers:  passengers(cfg.Passengers),
 		Route:       strings.Join(cfg.Route.Origins, ", ") + " → " + strings.Join(cfg.Route.Destination, ", "),
 		Constraints: constraints(cfg.Constraints),
-		Limits:      limits(cfg.Constraints),
-		NotVia:      strings.Join(cfg.Constraints.ExcludeConnections, ", "),
 		Now:         now.Format("Mon 2 Jan 2006, 15:04"),
 		Message:     msg,
 		Busy:        s.Busy(),
@@ -319,21 +315,15 @@ func passengers(p config.Passengers) string {
 }
 
 func constraints(c config.Constraints) string {
-	s := limits(c)
-	if len(c.ExcludeConnections) > 0 {
-		s += ", not via " + strings.Join(c.ExcludeConnections, ", ")
-	}
-	return s
-}
-
-// limits is the stops and duration part of the constraints.
-func limits(c config.Constraints) string {
 	s := "max " + plural(c.MaxStops, "stop")
 	if c.MaxStops == 0 {
 		s = "direct flights only"
 	}
 	if c.MaxDurationH > 0 {
 		s += fmt.Sprintf(", max %d h outbound", c.MaxDurationH)
+	}
+	if len(c.ExcludeConnections) > 0 {
+		s += ", not via " + strings.Join(c.ExcludeConnections, ", ")
 	}
 	return s
 }
