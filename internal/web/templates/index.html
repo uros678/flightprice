@@ -56,7 +56,9 @@ details summary { cursor: pointer; color: var(--muted); }
 <main>
 <header>
   <h1>flightprice</h1>
-  <div class="muted">{{.Passengers}} · {{.Route}} · {{.Constraints}}</div>
+  <div class="muted">{{.Passengers}} · {{.Route}}</div>
+  <div class="muted">{{.Limits}}</div>
+  {{with .NotVia}}<div class="muted">Not via {{.}}</div>{{end}}
   <div class="muted small">As of {{.Now}}{{if .Busy}} · <strong>a search is running</strong>{{end}}</div>
 </header>
 
