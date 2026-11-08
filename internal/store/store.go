@@ -160,7 +160,8 @@ type Run struct {
 	Source    string // scheduled, manual, retry or probe
 	Request   serpapi.Request
 	Result    serpapi.Result
-	Err       error // the search error, if any
+	Err       error  // the search error, if any
+	Note      string // saved as the error text when there is no error
 }
 
 // SaveRun stores a run with its offers in one transaction and returns its id.
@@ -177,6 +178,8 @@ func (s *Store) SaveRun(ctx context.Context, r Run) (int64, error) {
 	var errText, raw sql.NullString
 	if r.Err != nil {
 		errText = sql.NullString{String: r.Err.Error(), Valid: true}
+	} else if r.Note != "" {
+		errText = sql.NullString{String: r.Note, Valid: true}
 	}
 	if r.Result.Raw != nil {
 		raw = sql.NullString{String: string(r.Result.Raw), Valid: true}

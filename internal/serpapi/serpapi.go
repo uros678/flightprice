@@ -135,6 +135,9 @@ type Result struct {
 	// return flights can be seen and booked.
 	GoogleFlightsURL string
 	Raw              []byte
+	// OtherCabins is the number of offers dropped by Search because a leg
+	// was in another cabin than asked for.
+	OtherCabins int
 }
 
 // Offer is one round-trip itinerary. The price is the round-trip total for
@@ -150,6 +153,9 @@ type Offer struct {
 	DepartTime     string // local time at the origin, "2006-01-02 15:04"
 	ArriveTime     string // local time at the destination
 	DepartureToken string // for a later search of the return leg
+	// Cabins is the cabin of each outbound leg in the config's spelling
+	// (economy, premium_economy, business, first); "" when Google gave none.
+	Cabins []string
 }
 
 // Insights is Google's own view of the price for this search.
@@ -182,7 +188,23 @@ func (c *Client) Search(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		return c.fail(res, ProviderError, err.Error())
 	}
+	res.keepCabin(req.Cabin)
 	return res, nil
+}
+
+// keepCabin drops the offers with a leg in another cabin than asked for.
+// Google adds other cabins (mixed or business) to an answer, above all when
+// the asked one has nothing left. A leg without a cabin keeps its offer. A
+// search left without offers has no results.
+func (r *Result) keepCabin(cabin string) {
+	n := len(r.Offers)
+	r.Offers = slices.DeleteFunc(r.Offers, func(o Offer) bool {
+		return slices.ContainsFunc(o.Cabins, func(c string) bool { return c != "" && c != cabin })
+	})
+	r.OtherCabins = n - len(r.Offers)
+	if r.Status == Success && len(r.Offers) == 0 {
+		r.Status = NoResults
+	}
 }
 
 // Account is the part of SerpApi's account information flightprice uses.
@@ -304,6 +326,7 @@ type offerJSON struct {
 		ArrivalAirport   airportJSON `json:"arrival_airport"`
 		Airline          string      `json:"airline"`
 		FlightNumber     string      `json:"flight_number"`
+		TravelClass      string      `json:"travel_class"`
 	} `json:"flights"`
 	TotalDuration  int      `json:"total_duration"`
 	Price          *float64 `json:"price"`
@@ -360,6 +383,7 @@ func Parse(body []byte) (Result, error) {
 		for _, f := range o.Flights {
 			offer.Route = append(offer.Route, f.ArrivalAirport.ID)
 			offer.FlightNumbers = append(offer.FlightNumbers, f.FlightNumber)
+			offer.Cabins = append(offer.Cabins, cabinName(f.TravelClass))
 			if f.Airline != "" && !slices.Contains(offer.Airlines, f.Airline) {
 				offer.Airlines = append(offer.Airlines, f.Airline)
 			}
@@ -388,6 +412,14 @@ func Parse(body []byte) (Result, error) {
 		res.Status = Success
 	}
 	return res, nil
+}
+
+// cabinName turns SerpApi's travel_class ("Economy", "Premium Economy",
+// "Business Class", "First") into the config's spelling.
+func cabinName(class string) string {
+	c := strings.ToLower(strings.TrimSpace(class))
+	c = strings.TrimSuffix(c, " class")
+	return strings.ReplaceAll(c, " ", "_")
 }
 
 // GoogleFlightsURL returns u when it is a Google Flights link, else "".

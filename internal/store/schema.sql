@@ -10,7 +10,7 @@ CREATE TABLE runs (
   started_at   TEXT    NOT NULL,
   source       TEXT    NOT NULL,   -- 'scheduled' | 'manual' | 'retry' | 'probe'
   status       TEXT    NOT NULL,   -- serpapi.Status
-  error        TEXT,
+  error        TEXT,               -- the search error, or a note such as "no economy offers"
   billed       INTEGER NOT NULL,   -- 1 when SerpApi answered (counts against the quota)
   request_json TEXT    NOT NULL,   -- what was asked, without the key
   raw_json     TEXT,               -- SerpApi's full answer

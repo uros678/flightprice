@@ -510,3 +510,29 @@ func TestDepartedOptionNotSearched(t *testing.T) {
 		t.Error("page does not say option A departed")
 	}
 }
+
+// noEconomy answers like Google when economy has nothing left: only offers
+// in other cabins, which Search drops.
+type noEconomy struct{ *fake }
+
+func (f noEconomy) Search(ctx context.Context, req serpapi.Request) (serpapi.Result, error) {
+	f.fake.Search(ctx, req)
+	return serpapi.Result{Status: serpapi.NoResults, OtherCabins: 2, Raw: []byte(`{}`)}, nil
+}
+
+func TestNoEconomyOffers(t *testing.T) {
+	ts := newTestServer(t, "")
+	ts.search = noEconomy{ts.fake}
+	if _, err := ts.RunPlanned(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	runs, err := ts.store.RecentRuns(context.Background(), 10)
+	if err != nil || len(runs) == 0 || runs[0].Status != "NO_RESULTS" || runs[0].Error != "no economy offers (2 in other cabins)" {
+		t.Fatalf("runs = %+v, %v", runs, err)
+	}
+	rec := httptest.NewRecorder()
+	ts.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if !strings.Contains(rec.Body.String(), "no economy offers (2 in other cabins)") {
+		t.Error("the run log does not say that there were no economy offers")
+	}
+}

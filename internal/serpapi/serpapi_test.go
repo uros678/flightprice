@@ -339,3 +339,53 @@ func TestGoogleFlightsURL(t *testing.T) {
 		}
 	}
 }
+
+func TestCabinName(t *testing.T) {
+	for in, want := range map[string]string{
+		"Economy": "economy", "Premium Economy": "premium_economy",
+		"Business Class": "business", "Business": "business", "First": "first", "First Class": "first", "": "",
+	} {
+		if got := cabinName(in); got != want {
+			t.Errorf("cabinName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestSearchDropsOtherCabins(t *testing.T) {
+	leg := func(from, to, class string) string {
+		return `{"departure_airport": {"id": "` + from + `"}, "arrival_airport": {"id": "` + to + `"}, "airline": "X", "travel_class": "` + class + `"}`
+	}
+	offer := func(price string, legs ...string) string {
+		return `{"price": ` + price + `, "total_duration": 600, "flights": [` + strings.Join(legs, ",") + `]}`
+	}
+	for _, tc := range []struct {
+		name   string
+		offers []string
+		want   []int64
+		other  int
+		status Status
+	}{
+		{"mixed", []string{
+			offer("900", leg("FRA", "JFK", "Business Class")),
+			offer("950", leg("FRA", "LHR", "Economy"), leg("LHR", "JFK", "Premium Economy")),
+			offer("1000", leg("FRA", "LHR", "Economy"), leg("LHR", "JFK", "Economy")),
+			offer("1100", leg("FRA", "JFK", "")), // no class given: kept
+		}, []int64{100000, 110000}, 2, Success},
+		{"no economy", []string{
+			offer("23929", leg("FRA", "MUC", "Business Class"), leg("MUC", "JFK", "Business Class")),
+			offer("9000", leg("FRA", "JFK", "Premium Economy")),
+		}, nil, 2, NoResults},
+	} {
+		body := `{"best_flights": [` + strings.Join(tc.offers, ",") + `]}`
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(body)) }))
+		res, err := (&Client{Key: testKey, Endpoint: srv.URL}).Search(context.Background(), testRequest())
+		srv.Close()
+		var got []int64
+		for _, o := range res.Offers {
+			got = append(got, o.PriceCents)
+		}
+		if err != nil || res.Status != tc.status || !slices.Equal(got, tc.want) || res.OtherCabins != tc.other || len(res.Raw) == 0 {
+			t.Errorf("%s: %s %v, prices %v, other cabins %d, raw %d bytes", tc.name, res.Status, err, got, res.OtherCabins, len(res.Raw))
+		}
+	}
+}

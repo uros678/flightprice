@@ -259,6 +259,9 @@ func (s *Server) page(ctx context.Context, msg string) (*pageData, error) {
 		rv := runView{When: r.At.In(now.Location()).Format("2 Jan 15:04"), Option: r.Option, Origin: r.Origin,
 			Source: r.Source, Status: strings.ToLower(strings.ReplaceAll(r.Status, "_", " ")), Error: r.Error,
 			Bad: r.Status != "SUCCESS" && r.Status != "NO_RESULTS"}
+		if r.Status == "NO_RESULTS" && r.Error != "" {
+			rv.Status = r.Error // e.g. no economy offers
+		}
 		if r.PriceCents > 0 {
 			rv.Price = money(r.PriceCents, cur)
 		}

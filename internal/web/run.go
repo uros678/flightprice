@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/uros678/flightprice/internal/config"
@@ -235,20 +236,30 @@ func (s *Server) searchOne(ctx context.Context, origin, option, source string) (
 	}
 	req := NewRequest(s.cfg, origin, s.cfg.Options[i])
 	res, searchErr := s.search.Search(ctx, req)
+	var note string
+	if res.Status == serpapi.NoResults && res.OtherCabins > 0 {
+		note = fmt.Sprintf("no %s offers (%d in other cabins)", strings.ReplaceAll(req.Cabin, "_", " "), res.OtherCabins)
+	}
 
 	// Save even when the context ended: the search may have been billed.
 	_, err = s.store.SaveRun(context.WithoutCancel(ctx), store.Run{
 		Option: option, Origin: origin, StartedAt: now, Source: source,
-		Request: req, Result: res, Err: searchErr,
+		Request: req, Result: res, Err: searchErr, Note: note,
 	})
 	if err != nil {
 		s.log.Error("saving the run failed", "origin", origin, "option", option, "err", err)
 		return res.Status, err
 	}
 	attrs := []any{"origin", origin, "option", option, "source", source, "status", res.Status, "offers", len(res.Offers)}
-	if searchErr != nil {
+	if res.OtherCabins > 0 {
+		attrs = append(attrs, "other_cabins", res.OtherCabins)
+	}
+	switch {
+	case searchErr != nil:
 		s.log.Warn("search failed", append(attrs, "err", searchErr)...)
-	} else {
+	case note != "":
+		s.log.Info("search: "+note, attrs...)
+	default:
 		s.log.Info("search", attrs...)
 	}
 	return res.Status, nil
